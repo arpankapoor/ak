@@ -1,6 +1,7 @@
 use crate::k::{Adverb, Verb};
 use crate::stream::Stream;
 use crate::sym::Sym;
+use std::ops::Range;
 
 #[derive(Debug)]
 pub enum Token {
@@ -40,8 +41,10 @@ pub struct Error {
 pub enum ErrorCode {
     UnterminatedString,
     UnterminatedEscape,
+    UnterminatedFloatExponent,
     UnrecognizedEscape,
     UnrecognizedToken,
+    InvalidNumber
 }
 
 pub struct Tokenizer<'a> {
@@ -72,6 +75,10 @@ impl<'a> Tokenizer<'a> {
         }))
     }
 
+    fn slice(&self, range: Option<Range<usize>>) -> &'a [u8] {
+        &self.stream.slice[range.unwrap_or(self.start..self.stream.index.unwrap_or(self.start))]
+    }
+
     fn skip_comment(&mut self) {
         self.stream.consume_while(|&x| x != b'\n');
         self.bump();
@@ -85,7 +92,7 @@ impl<'a> Tokenizer<'a> {
             let len = self
                 .stream
                 .consume_while(|&x| x.is_ascii_alphanumeric() || matches!(x, b'.' | b':'));
-            syms.push(Sym::new(&self.stream.slice[start..start + len]));
+            syms.push(Sym::new(self.slice(Some(start..start + len))));
             if self.stream.next_if_eq(&b'`').is_none() {
                 break;
             }
@@ -125,9 +132,7 @@ impl<'a> Tokenizer<'a> {
 
     fn identifier(&mut self) -> Option<<Self as Iterator>::Item> {
         self.stream.consume_while(|x| x.is_ascii_alphanumeric());
-        self.token(Token::Identifier(Sym::new(
-            &self.stream.slice[self.start..=self.stream.index.unwrap()],
-        )))
+        self.token(Token::Identifier(Sym::new(self.slice(None))))
     }
 
     fn skip_whitespace(&mut self) {
@@ -141,49 +146,52 @@ impl<'a> Tokenizer<'a> {
         self.token(Token::Semi)
     }
 
+    fn is_num_start(&self) -> bool {
+        let (p1, p2) = (self.stream.peek(), self.stream.peek_next());
+        p1.filter(|x| x.is_ascii_digit()).is_some()
+            || (p1 == Some(&b'.') && p2.filter(|x| x.is_ascii_digit()).is_some())
+    }
+
     // ([^)}\]0-9a-zA-Z]-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?( -?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?)*
     fn number(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut is_float = false;
+        let mut start = self.start;
+        loop {
+            if self.stream.curr() == Some(&b'.') {
+                is_float = true;
+            } else {
+                self.stream.consume_while(|x| x.is_ascii_digit());
+                is_float |= self.stream.next_if_eq(&b'.').is_some();
+            }
+            // digits before decimal point are consumed at this point
+            self.stream.consume_while(|x| x.is_ascii_digit());
+            if self.stream.next_if_eq(&b'e').is_some() {
+                is_float = true;
+                self.stream.next_if(|&x| matches!(x, b'+' | b'-'));
+                if self.stream.consume_while(|x| x.is_ascii_digit()) == 0 {
+                    self.start = start;
+                    return self.error(ErrorCode::UnterminatedFloatExponent);
+                }
+            }
+            let end = self.stream.index;
+            match self.stream.peek() {
+                Some(&b' ') => {
+                    self.stream.next(); // ' '
+                    start = self.stream.index.unwrap();
+                    self.stream.next_if_eq(&b'-');
+                    if !self.is_num_start() {
+                        self.stream.index = end;
+                        break;
+                    }
+                }
+                Some(&(b'.' | b'a'..=b'z' | b'A'..=b'Z')) => {
+                    self.start = start;
+                    return self.error(ErrorCode::InvalidNumber);
+                }
+                _ => break,
+            }
+        }
         None
-        //loop {
-        //    if self.stream.curr() == Some(&b'.') {
-        //        is_float = true;
-        //    } else {
-        //        self.stream.consume_while(|x| x.is_ascii_digit());
-        //        is_float |= self.stream.next_if_eq(&b'.').is_some();
-        //    }
-        //    self.stream.consume_while(|x| x.is_ascii_digit());
-        //    if self.stream.next_if_eq(&b'e').is_some() {
-        //        is_float = true;
-        //        self.stream.next_if(|&x| matches!(x, b'+' | b'-'));
-        //        if self.stream.consume_while(|x| x.is_ascii_digit()) == 0 {
-        //            return self.create_error(LexerErrorType::InvalidNumber);
-        //        }
-        //    }
-        //    let saved_idx = self.stream.curr_idx;
-        //    match self.stream.peek() {
-        //        Some(&b' ') => {
-        //            self.stream.next(); // ' '
-        //            self.stream.next_if_eq(&b'-');
-        //            if !((self.stream.peek() == Some(&b'.')
-        //                && self
-        //                .stream
-        //                .peek_next()
-        //                .filter(|x| x.is_ascii_digit())
-        //                .is_some())
-        //                || self.stream.next_if(|x| x.is_ascii_digit()).is_some())
-        //            {
-        //                self.stream.curr_idx = saved_idx;
-        //                break;
-        //            }
-        //        }
-        //        Some(&(b'.' | b'a'..=b'z' | b'A'..=b'Z')) => {
-        //            self.stream.next();
-        //            return self.create_error(LexerErrorType::InvalidNumber);
-        //        }
-        //        _ => break,
-        //    }
-        //}
         //self.token(if is_float {
         //    Token::FloatList
         //} else {
@@ -209,10 +217,10 @@ impl Iterator for Tokenizer<'_> {
                 b'+' => self.token(Token::Verb(Verb::Plus)),
                 b'-' => {
                     let (p1, p2) = (self.stream.peek(), self.stream.peek_next());
-                    if (!matches!(self.stream.prev(), Some(b')' | b'}' | b']' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z')))
-                        && ((self.stream.peek() == Some(&b'.')
-                        && self.stream.peek_next().filter(|x| x.is_ascii_digit()).is_some())
-                        || self.stream.next_if(|x| x.is_ascii_digit()).is_some())
+                    if (!matches!(
+                        self.stream.prev(),
+                        Some(b')' | b'}' | b']' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z')
+                    )) && self.is_num_start()
                     {
                         self.number() // -.[0-9] or -[0-9]
                     } else {
@@ -281,7 +289,7 @@ impl Iterator for Tokenizer<'_> {
                 _ => self.error(ErrorCode::UnrecognizedToken),
             };
             self.bump();
-            return tok;
+            break tok
         }
     }
 }

@@ -8,39 +8,39 @@ impl<'a, T> Stream<'a, T> {
         Self { slice, index: None }
     }
 
-    pub fn prev(&self) -> Option<T> {
+    pub fn prev(&self) -> Option<&'a T> {
         self.slice.get(self.index.filter(|&i| i != 0)? - 1)
     }
 
-    pub fn curr(&self) -> Option<T> {
+    pub fn curr(&self) -> Option<&'a T> {
         self.slice.get(self.index?)
     }
 
-    pub fn peek(&self) -> Option<T> {
+    pub fn peek(&self) -> Option<&'a T> {
         self.slice
             .get(self.index.map_or(0, |i| i.saturating_add(1)))
     }
 
-    pub fn peek_next(&self) -> Option<T> {
+    pub fn peek_next(&self) -> Option<&'a T> {
         self.slice
             .get(self.index.map_or(1, |i| i.saturating_add(2)))
     }
 
-    pub fn next_if<F: FnOnce(T) -> bool>(&mut self, func: F) -> Option<T> {
+    pub fn next_if<F: FnOnce(&'a T) -> bool>(&mut self, func: F) -> Option<&'a T> {
         match self.peek() {
             Some(x) if func(x) => self.next(),
             _ => None,
         }
     }
 
-    pub fn next_if_eq(&mut self, expected: T) -> Option<T>
+    pub fn next_if_eq(&mut self, expected: &'a T) -> Option<&'a T>
     where
         T: PartialEq,
     {
         self.next_if(|x| x == expected)
     }
 
-    pub fn consume_while(&mut self, func: fn(&T) -> bool) -> usize {
+    pub fn consume_while(&mut self, func: fn(&'a T) -> bool) -> usize {
         let mut count = 0;
         while self.next_if(func).is_some() {
             count += 1;
@@ -50,7 +50,7 @@ impl<'a, T> Stream<'a, T> {
 }
 
 impl<'a, T> Iterator for Stream<'a, T> {
-    type Item = T;
+    type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
         let index = self
