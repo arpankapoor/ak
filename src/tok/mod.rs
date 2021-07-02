@@ -1,7 +1,12 @@
+use std::num::{ParseFloatError, ParseIntError};
+use std::str;
+
+use stream::ByteStream;
+
 use crate::k::{Adverb, Verb};
-use crate::stream::Stream;
 use crate::sym::Sym;
-use std::ops::Range;
+
+mod stream;
 
 #[derive(Debug)]
 pub enum Token {
@@ -29,6 +34,46 @@ pub enum Token {
     Identifier(Sym),
 }
 
+impl From<Vec<u8>> for Token {
+    fn from(mut v: Vec<u8>) -> Self {
+        if v.len() == 1 {
+            Token::Char(v.remove(0))
+        } else {
+            Token::CharList(v)
+        }
+    }
+}
+
+impl From<Vec<i64>> for Token {
+    fn from(mut v: Vec<i64>) -> Self {
+        if v.len() == 1 {
+            Token::Int(v.remove(0))
+        } else {
+            Token::IntList(v)
+        }
+    }
+}
+
+impl From<Vec<f64>> for Token {
+    fn from(mut v: Vec<f64>) -> Self {
+        if v.len() == 1 {
+            Token::Float(v.remove(0))
+        } else {
+            Token::FloatList(v)
+        }
+    }
+}
+
+impl From<Vec<Sym>> for Token {
+    fn from(mut v: Vec<Sym>) -> Self {
+        if v.len() == 1 {
+            Token::Sym(v.remove(0))
+        } else {
+            Token::SymList(v)
+        }
+    }
+}
+
 pub type Spanned<T> = (usize, T, usize);
 
 #[derive(Debug)]
@@ -44,28 +89,42 @@ pub enum ErrorCode {
     UnterminatedFloatExponent,
     UnrecognizedEscape,
     UnrecognizedToken,
-    InvalidNumber
+    InvalidNumber,
+    ParseFloatError(ParseFloatError),
+    ParseIntError(ParseIntError),
+}
+
+impl From<ParseFloatError> for ErrorCode {
+    fn from(e: ParseFloatError) -> Self {
+        ErrorCode::ParseFloatError(e)
+    }
+}
+
+impl From<ParseIntError> for ErrorCode {
+    fn from(e: ParseIntError) -> Self {
+        ErrorCode::ParseIntError(e)
+    }
 }
 
 pub struct Tokenizer<'a> {
-    stream: Stream<'a, u8>,
+    stream: ByteStream<'a>,
     start: usize,
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(text: &'a [u8]) -> Self {
+    pub fn new(src: &'a [u8]) -> Self {
         Self {
-            stream: Stream::new(text),
+            stream: ByteStream::new(src),
             start: 0,
         }
     }
 
     fn bump(&mut self) {
-        self.start = self.stream.index.unwrap_or(0);
+        self.start = self.stream.next_index();
     }
 
     fn token(&self, token: Token) -> Option<<Self as Iterator>::Item> {
-        Some(Ok((self.start, token, self.stream.index.unwrap_or(0))))
+        Some(Ok((self.start, token, self.stream.next_index())))
     }
 
     fn error(&self, error: ErrorCode) -> Option<<Self as Iterator>::Item> {
@@ -75,12 +134,8 @@ impl<'a> Tokenizer<'a> {
         }))
     }
 
-    fn slice(&self, range: Option<Range<usize>>) -> &'a [u8] {
-        &self.stream.slice[range.unwrap_or(self.start..self.stream.index.unwrap_or(self.start))]
-    }
-
     fn skip_comment(&mut self) {
-        self.stream.consume_while(|&x| x != b'\n');
+        self.stream.consume_while(|x| x != b'\n');
         self.bump();
     }
 
@@ -88,29 +143,25 @@ impl<'a> Tokenizer<'a> {
     fn symbol(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut syms = Vec::new();
         loop {
-            let start = self.stream.index.unwrap() + 1; // we have seen at least 1 backtick (`)
+            let start = self.stream.next_index();
             let len = self
                 .stream
-                .consume_while(|&x| x.is_ascii_alphanumeric() || matches!(x, b'.' | b':'));
-            syms.push(Sym::new(self.slice(Some(start..start + len))));
-            if self.stream.next_if_eq(&b'`').is_none() {
+                .consume_while(|x| x.is_ascii_alphanumeric() || matches!(x, b'.' | b':'));
+            syms.push(Sym::new(self.stream.slice(start..start + len)));
+            if self.stream.next_if_eq(b'`').is_none() {
                 break;
             }
         }
-        self.token(if syms.len() == 1 {
-            Token::Sym(syms.remove(0))
-        } else {
-            Token::SymList(syms)
-        })
+        self.token(syms.into())
     }
 
     // char/string
     fn string(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut string = Vec::new();
-        while let Some(&c) = self.stream.next_if(|&x| x != b'"') {
+        while let Some(c) = self.stream.next_if(|x| x != b'"') {
             string.push(match c {
                 b'\\' => match self.stream.next() {
-                    Some(&e @ (b'"' | b'\\')) => e,
+                    Some(e @ (b'"' | b'\\')) => e,
                     Some(b'n') => b'\n',
                     Some(b'r') => b'\r',
                     Some(b't') => b'\t',
@@ -120,36 +171,36 @@ impl<'a> Tokenizer<'a> {
                 _ => c,
             });
         }
-        match self.stream.next_if_eq(&b'"') {
-            Some(_) => self.token(if string.len() == 1 {
-                Token::Char(string.remove(0))
-            } else {
-                Token::CharList(string)
-            }),
+        match self.stream.next_if_eq(b'"') {
+            Some(_) => self.token(string.into()),
             None => self.error(ErrorCode::UnterminatedString),
         }
     }
 
     fn identifier(&mut self) -> Option<<Self as Iterator>::Item> {
-        self.stream.consume_while(|x| x.is_ascii_alphanumeric());
-        self.token(Token::Identifier(Sym::new(self.slice(None))))
+        let len = self.stream.consume_while(|x| x.is_ascii_alphanumeric()) + 1;
+        self.token(Token::Identifier(Sym::new(
+            self.stream.slice(self.start..self.start + len),
+        )))
     }
 
     fn skip_whitespace(&mut self) {
         self.stream
-            .consume_while(|&x| matches!(x, b'\t' | b'\x0C' | b'\r' | b' '));
+            .consume_while(|x| matches!(x, b'\t' | b'\x0C' | b'\r' | b' '));
         self.bump();
     }
 
     fn newline(&mut self) -> Option<<Self as Iterator>::Item> {
-        self.stream.consume_while(|&x| x == b'\n');
+        self.stream.consume_while(|x| x == b'\n');
         self.token(Token::Semi)
     }
 
     fn is_num_start(&self) -> bool {
-        let (p1, p2) = (self.stream.peek(), self.stream.peek_next());
-        p1.filter(|x| x.is_ascii_digit()).is_some()
-            || (p1 == Some(&b'.') && p2.filter(|x| x.is_ascii_digit()).is_some())
+        match self.stream.peek() {
+            Some(b'0'..=b'9') => true,
+            Some(b'.') => matches!(self.stream.peek_next(), Some(b'0'..=b'9')),
+            _ => false,
+        }
     }
 
     // ([^)}\]0-9a-zA-Z]-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?( -?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?)*
@@ -157,46 +208,55 @@ impl<'a> Tokenizer<'a> {
         let mut is_float = false;
         let mut start = self.start;
         loop {
-            if self.stream.curr() == Some(&b'.') {
+            if self.stream.curr() == Some(b'.') {
                 is_float = true;
             } else {
                 self.stream.consume_while(|x| x.is_ascii_digit());
-                is_float |= self.stream.next_if_eq(&b'.').is_some();
+                is_float |= self.stream.next_if_eq(b'.').is_some();
             }
             // digits before decimal point are consumed at this point
             self.stream.consume_while(|x| x.is_ascii_digit());
-            if self.stream.next_if_eq(&b'e').is_some() {
+            if self.stream.next_if_eq(b'e').is_some() {
                 is_float = true;
-                self.stream.next_if(|&x| matches!(x, b'+' | b'-'));
+                self.stream.next_if(|x| matches!(x, b'+' | b'-'));
                 if self.stream.consume_while(|x| x.is_ascii_digit()) == 0 {
                     self.start = start;
                     return self.error(ErrorCode::UnterminatedFloatExponent);
                 }
             }
-            let end = self.stream.index;
+            let backtrack = self.stream.clone();
             match self.stream.peek() {
-                Some(&b' ') => {
+                Some(b' ') => {
                     self.stream.next(); // ' '
-                    start = self.stream.index.unwrap();
-                    self.stream.next_if_eq(&b'-');
+                    start = self.stream.next_index();
+                    self.stream.next_if_eq(b'-');
                     if !self.is_num_start() {
-                        self.stream.index = end;
+                        self.stream = backtrack;
                         break;
                     }
                 }
-                Some(&(b'.' | b'a'..=b'z' | b'A'..=b'Z')) => {
+                Some(b'.' | b'a'..=b'z' | b'A'..=b'Z') => {
                     self.start = start;
                     return self.error(ErrorCode::InvalidNumber);
                 }
                 _ => break,
             }
         }
-        None
-        //self.token(if is_float {
-        //    Token::FloatList
-        //} else {
-        //    Token::IntList
-        //})
+        macro_rules! parse_nums {
+            ($ty: ty, $lexeme: ident) => {
+                $lexeme
+                    .split(|&x| x == b' ')
+                    .map(|x| unsafe { str::from_utf8_unchecked(x) }.parse())
+                    .collect::<Result<Vec<$ty>, _>>()
+                    .map_or_else(|e| self.error(e.into()), |v| self.token(v.into()))
+            };
+        }
+        let slice = self.stream.slice(self.start..self.stream.next_index());
+        if is_float {
+            parse_nums!(f64, slice)
+        } else {
+            parse_nums!(i64, slice)
+        }
     }
 }
 
@@ -216,7 +276,6 @@ impl Iterator for Tokenizer<'_> {
                 b':' => self.token(Token::Verb(Verb::Colon)),
                 b'+' => self.token(Token::Verb(Verb::Plus)),
                 b'-' => {
-                    let (p1, p2) = (self.stream.peek(), self.stream.peek_next());
                     if (!matches!(
                         self.stream.prev(),
                         Some(b')' | b'}' | b']' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z')
@@ -247,16 +306,16 @@ impl Iterator for Tokenizer<'_> {
                     self.number() // .[0-9]
                 }
                 b'.' => self.token(Token::Verb(Verb::Dot)),
-                b'0' if self.stream.next_if_eq(&b':').is_some() => {
+                b'0' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Verb(Verb::ZeroColon))
                 }
-                b'1' if self.stream.next_if_eq(&b':').is_some() => {
+                b'1' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Verb(Verb::OneColon))
                 }
-                b'2' if self.stream.next_if_eq(&b':').is_some() => {
+                b'2' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Verb(Verb::TwoColon))
                 }
-                b'\'' if self.stream.next_if_eq(&b':').is_some() => {
+                b'\'' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Adverb(Adverb::QuoteColon))
                 }
                 b'\'' => self.token(Token::Adverb(Adverb::Quote)),
@@ -269,11 +328,11 @@ impl Iterator for Tokenizer<'_> {
                     self.skip_comment();
                     continue;
                 }
-                b'/' if self.stream.next_if_eq(&b':').is_some() => {
+                b'/' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Adverb(Adverb::SlashColon))
                 }
                 b'/' => self.token(Token::Adverb(Adverb::Slash)),
-                b'\\' if self.stream.next_if_eq(&b':').is_some() => {
+                b'\\' if self.stream.next_if_eq(b':').is_some() => {
                     self.token(Token::Adverb(Adverb::BackslashColon))
                 }
                 b'\\' => self.token(Token::Adverb(Adverb::Backslash)),
@@ -289,7 +348,7 @@ impl Iterator for Tokenizer<'_> {
                 _ => self.error(ErrorCode::UnrecognizedToken),
             };
             self.bump();
-            break tok
+            break tok;
         }
     }
 }

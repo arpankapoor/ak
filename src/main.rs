@@ -11,7 +11,6 @@ use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
 
 mod k;
-mod stream;
 mod sym;
 mod tok;
 mod util;
