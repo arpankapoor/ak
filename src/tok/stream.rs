@@ -12,8 +12,7 @@ impl<'a> ByteStream<'a> {
     }
 
     pub fn next_index(&self) -> usize {
-        self.index
-            .map_or(0, |i| i.saturating_add(1).min(self.slice.len()))
+        self.index.map_or(0, |i| self.slice.len().min(i + 1))
     }
 
     pub fn slice(&self, range: Range<usize>) -> &'a [u8] {
@@ -29,15 +28,11 @@ impl<'a> ByteStream<'a> {
     }
 
     pub fn peek(&self) -> Option<u8> {
-        self.slice
-            .get(self.index.map_or(0, |i| i.saturating_add(1)))
-            .copied()
+        self.slice.get(self.index.map_or(0, |i| i + 1)).copied()
     }
 
     pub fn peek_next(&self) -> Option<u8> {
-        self.slice
-            .get(self.index.map_or(1, |i| i.saturating_add(2)))
-            .copied()
+        self.slice.get(self.index.map_or(1, |i| i + 2)).copied()
     }
 
     pub fn next_if<F: FnOnce(u8) -> bool>(&mut self, func: F) -> Option<u8> {

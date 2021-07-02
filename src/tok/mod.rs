@@ -1,10 +1,9 @@
 use std::num::{ParseFloatError, ParseIntError};
 use std::str;
 
-use stream::ByteStream;
-
 use crate::k::{Adverb, Verb};
 use crate::sym::Sym;
+use crate::tok::stream::ByteStream;
 
 mod stream;
 
