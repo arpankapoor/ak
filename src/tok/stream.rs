@@ -15,8 +15,8 @@ impl<'a> ByteStream<'a> {
         self.index.map_or(0, |i| self.slice.len().min(i + 1))
     }
 
-    pub fn slice(&self, range: Range<usize>) -> &'a [u8] {
-        &self.slice[range]
+    pub fn slice(&self, start: usize) -> &'a [u8] {
+        &self.slice[start..self.next_index()]
     }
 
     pub fn prev(&self) -> Option<u8> {

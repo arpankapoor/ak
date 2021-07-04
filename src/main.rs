@@ -11,6 +11,8 @@ use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
 
 mod k;
+mod parser;
+mod span;
 mod sym;
 mod tok;
 mod util;
@@ -33,7 +35,8 @@ fn run(src: &[u8]) {
     match Tokenizer::new(src).collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => {
             for token in tokens {
-                println!("{:?}", token.1);
+                //println!("({}, {:?}, {})", token.0, token.1, token.2);
+                println!("{:?}", token);
             }
         }
         Err(e) => println!("tokenizer error: {:?}", e),

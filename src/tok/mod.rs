@@ -2,6 +2,7 @@ use std::num::{ParseFloatError, ParseIntError};
 use std::str;
 
 use crate::k::{Adverb, Verb};
+use crate::span::Spanned;
 use crate::sym::Sym;
 use crate::tok::stream::ByteStream;
 
@@ -73,8 +74,6 @@ impl From<Vec<Sym>> for Token {
     }
 }
 
-pub type Spanned<T> = (usize, T, usize);
-
 #[derive(Debug)]
 pub struct Error {
     location: usize,
@@ -123,7 +122,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn token(&self, token: Token) -> Option<<Self as Iterator>::Item> {
-        Some(Ok((self.start, token, self.stream.next_index())))
+        Some(Ok(Spanned(self.start, token, self.stream.next_index())))
     }
 
     fn error(&self, error: ErrorCode) -> Option<<Self as Iterator>::Item> {
@@ -143,10 +142,9 @@ impl<'a> Tokenizer<'a> {
         let mut syms = Vec::new();
         loop {
             let start = self.stream.next_index();
-            let len = self
-                .stream
+            self.stream
                 .consume_while(|x| x.is_ascii_alphanumeric() || matches!(x, b'.' | b':'));
-            syms.push(Sym::new(self.stream.slice(start..start + len)));
+            syms.push(Sym::new(self.stream.slice(start)));
             if self.stream.next_if_eq(b'`').is_none() {
                 break;
             }
@@ -177,10 +175,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn identifier(&mut self) -> Option<<Self as Iterator>::Item> {
-        let len = self.stream.consume_while(|x| x.is_ascii_alphanumeric()) + 1;
-        self.token(Token::Identifier(Sym::new(
-            self.stream.slice(self.start..self.start + len),
-        )))
+        self.stream.consume_while(|x| x.is_ascii_alphanumeric());
+        self.token(Token::Identifier(Sym::new(self.stream.slice(self.start))))
     }
 
     fn skip_whitespace(&mut self) {
@@ -250,7 +246,7 @@ impl<'a> Tokenizer<'a> {
                     .map_or_else(|e| self.error(e.into()), |v| self.token(v.into()))
             };
         }
-        let slice = self.stream.slice(self.start..self.stream.next_index());
+        let slice = self.stream.slice(self.start);
         if is_float {
             parse_nums!(f64, slice)
         } else {

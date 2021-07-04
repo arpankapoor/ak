@@ -1,3 +1,5 @@
+use crate::sym::Sym;
+
 #[derive(Debug)]
 pub enum Verb {
     Colon = 0,
@@ -33,4 +35,21 @@ pub enum Adverb {
     QuoteColon = 3,
     SlashColon = 4,
     BackslashColon = 5,
+}
+
+#[derive(Debug)]
+pub enum K {
+    Char(u8),
+    Int(i64),
+    Float(f64),
+    Sym(Sym),
+    Name(Sym),
+
+    Verb(Verb),
+
+    CharList(Vec<u8>),
+    IntList(Vec<i64>),
+    FloatList(Vec<f64>),
+    SymList(Vec<Sym>),
+    GenList(Vec<K>),
 }
