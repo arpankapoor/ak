@@ -31,7 +31,7 @@ pub enum Token {
     FloatList(Vec<f64>),
     SymList(Vec<Sym>),
 
-    Identifier(Sym),
+    Name(Sym),
 }
 
 impl From<Vec<u8>> for Token {
@@ -122,7 +122,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn token(&self, token: Token) -> Option<<Self as Iterator>::Item> {
-        Some(Ok(Spanned(self.start, token, self.stream.next_index())))
+        Some(Ok(Spanned(self.start, self.stream.next_index(), token)))
     }
 
     fn error(&self, error: ErrorCode) -> Option<<Self as Iterator>::Item> {
@@ -176,7 +176,7 @@ impl<'a> Tokenizer<'a> {
 
     fn identifier(&mut self) -> Option<<Self as Iterator>::Item> {
         self.stream.consume_while(|x| x.is_ascii_alphanumeric());
-        self.token(Token::Identifier(Sym::new(self.stream.slice(self.start))))
+        self.token(Token::Name(Sym::new(self.stream.slice(self.start))))
     }
 
     fn skip_whitespace(&mut self) {

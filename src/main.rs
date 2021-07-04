@@ -7,6 +7,7 @@ use std::io;
 use std::io::{BufRead, Write};
 use std::process;
 
+use crate::parser::Parser;
 use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
 
@@ -34,9 +35,15 @@ fn print_prompt() -> io::Result<()> {
 fn run(src: &[u8]) {
     match Tokenizer::new(src).collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => {
-            for token in tokens {
+            for token in &tokens {
                 //println!("({}, {:?}, {})", token.0, token.1, token.2);
                 println!("{:?}", token);
+            }
+            let mut p = Parser::new(tokens);
+            match p.parse() {
+                Ok(Some(ast)) => println!("{}", ast),
+                Ok(None) => println!("empty!!!"),
+                Err(e) => println!("parsing error: {:?}", e),
             }
         }
         Err(e) => println!("tokenizer error: {:?}", e),

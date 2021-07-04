@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 #[derive(Clone)]
 pub struct ByteStream<'a> {
     slice: &'a [u8],
