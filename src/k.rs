@@ -46,6 +46,7 @@ pub enum K {
     Name(Sym),
 
     Verb(Verb),
+    Adverb(Adverb),
 
     CharList(Vec<u8>),
     IntList(Vec<i64>),

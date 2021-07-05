@@ -73,6 +73,7 @@ pub struct Error {
 pub enum ErrorCode {
     UnclosedParens,
     UnclosedBrackets,
+    UnexpectedToken,
 }
 
 pub struct Parser {
@@ -101,6 +102,9 @@ impl Parser {
 
     fn program(&mut self) -> Result<Option<ASTNode>, Error> {
         let Spanned(start, end, mut exprs) = self.expr_list(0)?;
+        if let Some(Spanned(s, _, _)) = self.tokens_iter.next() {
+            return Err(Error { location: s, code: ErrorCode::UnexpectedToken });
+        }
         match exprs.len() {
             1 => Ok(exprs.remove(0)),
             _ => Ok(Some(ASTNode::ExprList(Spanned(start, end, exprs)))),
@@ -147,8 +151,10 @@ impl Parser {
         };
         Ok(Some(match t {
             Token::LtParen => extract_ast!(self.paren(s)),
+            //Token::LtBraces => extract_ast!(self.function(s)),
             Token::LtBracket => extract_ast!(self.bracket(s)),
             Token::Verb(v) => ASTNode::Expr(Spanned(s, e, K::Verb(v))),
+            Token::Adverb(a) => ASTNode::Expr(Spanned(s, e, K::Adverb(a))),
             Token::Char(c) => ASTNode::Expr(Spanned(s, e, K::Char(c))),
             Token::Int(i) => ASTNode::Expr(Spanned(s, e, K::Int(i))),
             Token::Float(f) => ASTNode::Expr(Spanned(s, e, K::Float(f))),
@@ -158,7 +164,6 @@ impl Parser {
             Token::FloatList(f) => ASTNode::Expr(Spanned(s, e, K::FloatList(f))),
             Token::SymList(sym) => ASTNode::Expr(Spanned(s, e, K::SymList(sym))),
             Token::Name(id) => ASTNode::Expr(Spanned(s, e, K::Name(id))),
-            //Token::RtParen => Err(Error{ location: s, code: ErrorCode::UnclosedParens }),
             _ => ASTNode::Expr(Spanned(0, 0, K::GenList(vec![]))),
         }))
     }
