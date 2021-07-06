@@ -46,7 +46,7 @@ impl fmt::Display for ASTNode {
 }
 
 impl ASTNode {
-    fn start(&self) -> usize {
+    pub fn start(&self) -> usize {
         match self {
             Self::Expr(Spanned(s, _, _)) => *s,
             Self::Apply(Spanned(s, _, _)) => *s,
@@ -54,7 +54,7 @@ impl ASTNode {
         }
     }
 
-    fn end(&self) -> usize {
+    pub fn end(&self) -> usize {
         match self {
             Self::Expr(Spanned(_, e, _)) => *e,
             Self::Apply(Spanned(_, e, _)) => *e,
@@ -128,7 +128,7 @@ impl Parser {
                     None => ASTNode::Apply(Spanned(
                         e1.start(),
                         verb.end(),
-                        (Box::new(verb), vec![Some(e1)]),
+                        (Box::new(verb), vec![Some(e1), None]),
                     )),
                 }
             }

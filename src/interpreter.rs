@@ -1,17 +1,14 @@
+use std::collections::VecDeque;
+
+use crate::error::RuntimeErrorCode;
 use crate::k::{Verb, K};
 use crate::parser::ASTNode;
 use crate::span::Spanned;
-use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub struct Error {
     location: usize,
-    code: ErrorCode,
-}
-
-#[derive(Debug)]
-pub enum ErrorCode {
-    Nyi,
+    code: RuntimeErrorCode,
 }
 
 impl ASTNode {
@@ -30,22 +27,33 @@ impl ASTNode {
             }
             ASTNode::ExprList(Spanned(s, _, _)) => Err(Error {
                 location: s,
-                code: ErrorCode::Nyi,
+                code: RuntimeErrorCode::Nyi,
             }),
         }
     }
 
-    fn apply(self, args: VecDeque<K>) -> Result<K, Error> {
+    fn apply(self, mut args: VecDeque<K>) -> Result<K, Error> {
+        let (start, end) = (self.start(), self.end());
         let k = self.interpret()?;
         match k {
-            K::Verb(Verb::Plus) => {
-                if let K::Int(x) = args[0] {
-                    if let K::Int(y) = args[1] {
-                        return Ok(K::Int(x + y));
+            K::Verb(Verb::Plus) => match args.len() {
+                0 => Ok(K::Verb(Verb::Plus)),
+                1 => todo!("flip"),
+                2 => {
+                    let (arg1, arg0) = (args.remove(1).unwrap(), args.remove(0).unwrap());
+                    match arg0 + arg1 {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(Error {
+                            location: start,
+                            code: e,
+                        }),
                     }
                 }
-                Ok(K::Int(0))
-            }
+                _ => Err(Error {
+                    location: start,
+                    code: RuntimeErrorCode::Rank,
+                }),
+            },
             K::Verb(Verb::Star) => {
                 if let K::Int(x) = args[0] {
                     if let K::Int(y) = args[1] {
@@ -55,8 +63,8 @@ impl ASTNode {
                 Ok(K::Int(0))
             }
             _ => Err(Error {
-                location: 0,
-                code: ErrorCode::Nyi,
+                location: start,
+                code: RuntimeErrorCode::Nyi,
             }),
         }
     }

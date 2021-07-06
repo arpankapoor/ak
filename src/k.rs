@@ -1,5 +1,7 @@
 use std::fmt;
+use std::ops::Add;
 
+use crate::error::RuntimeErrorCode;
 use crate::sym::Sym;
 
 #[derive(Debug)]
@@ -95,6 +97,53 @@ impl fmt::Display for K {
             Self::FloatList(x) => print_list(f, x, false, " "),
             Self::SymList(x) => print_list(f, x, false, ""),
             Self::GenList(x) => print_list(f, x, true, ";"),
+        }
+    }
+}
+
+impl Add for K {
+    type Output = Result<K, RuntimeErrorCode>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Int(x), Self::Int(y)) => Ok(K::Int(x + y)),
+            (Self::Int(x), Self::Float(y)) => Ok(K::Float(x as f64 + y)),
+            (Self::Int(x), Self::IntList(y)) => Ok(K::IntList(y.iter().map(|e| e + x).collect())),
+            (Self::Int(x), Self::FloatList(y)) => {
+                let x = x as f64;
+                Ok(K::FloatList(y.iter().map(|e| e + x).collect()))
+            }
+
+            (Self::Float(x), Self::Int(y)) => Ok(K::Float(x + y as f64)),
+            (Self::Float(x), Self::Float(y)) => Ok(K::Float(x + y)),
+            (Self::Float(x), Self::IntList(y)) => {
+                Ok(K::FloatList(y.iter().map(|&e| e as f64 + x).collect()))
+            }
+            (Self::Float(x), Self::FloatList(y)) => {
+                Ok(K::FloatList(y.iter().map(|e| e + x).collect()))
+            }
+
+            (Self::IntList(x), Self::Int(y)) => Ok(K::IntList(x.iter().map(|e| e + y).collect())),
+            (Self::IntList(x), Self::Float(y)) => {
+                Ok(K::FloatList(x.iter().map(|&e| e as f64 + y).collect()))
+            }
+            (Self::IntList(x), Self::IntList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::IntList(x.iter().zip(y).map(|(x, y)| x + y).collect()))
+                }
+            }
+            (Self::IntList(x), Self::FloatList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::FloatList(
+                        x.iter().zip(y).map(|(&x, y)| x as f64 + y).collect(),
+                    ))
+                }
+            }
+            (_, _) => Err(RuntimeErrorCode::Nyi),
         }
     }
 }
