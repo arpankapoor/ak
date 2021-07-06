@@ -40,7 +40,7 @@ impl ASTNode {
                 0 => Ok(K::Verb(Verb::Plus)),
                 1 => todo!("flip"),
                 2 => {
-                    let (arg1, arg0) = (args.remove(1).unwrap(), args.remove(0).unwrap());
+                    let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
                     match arg0 + arg1 {
                         Ok(res) => Ok(res),
                         Err(e) => Err(Error {
@@ -54,14 +54,60 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            K::Verb(Verb::Star) => {
-                if let K::Int(x) = args[0] {
-                    if let K::Int(y) = args[1] {
-                        return Ok(K::Int(x * y));
+            K::Verb(Verb::Minus) => match args.len() {
+                0 => Ok(K::Verb(Verb::Minus)),
+                1 => todo!("neg"),
+                2 => {
+                    let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
+                    match arg0 - arg1 {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(Error {
+                            location: start,
+                            code: e,
+                        }),
                     }
                 }
-                Ok(K::Int(0))
-            }
+                _ => Err(Error {
+                    location: start,
+                    code: RuntimeErrorCode::Rank,
+                }),
+            },
+            K::Verb(Verb::Star) => match args.len() {
+                0 => Ok(K::Verb(Verb::Star)),
+                1 => todo!("first"),
+                2 => {
+                    let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
+                    match arg0 * arg1 {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(Error {
+                            location: start,
+                            code: e,
+                        }),
+                    }
+                }
+                _ => Err(Error {
+                    location: start,
+                    code: RuntimeErrorCode::Rank,
+                }),
+            },
+            K::Verb(Verb::Percent) => match args.len() {
+                0 => Ok(K::Verb(Verb::Percent)),
+                1 => todo!("first"),
+                2 => {
+                    let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
+                    match arg0 / arg1 {
+                        Ok(res) => Ok(res),
+                        Err(e) => Err(Error {
+                            location: start,
+                            code: e,
+                        }),
+                    }
+                }
+                _ => Err(Error {
+                    location: start,
+                    code: RuntimeErrorCode::Rank,
+                }),
+            },
             _ => Err(Error {
                 location: start,
                 code: RuntimeErrorCode::Nyi,
