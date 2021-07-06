@@ -11,6 +11,7 @@ use crate::parser::Parser;
 use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
 
+mod interpreter;
 mod k;
 mod parser;
 mod span;
@@ -35,13 +36,21 @@ fn print_prompt() -> io::Result<()> {
 fn run(src: &[u8]) {
     match Tokenizer::new(src).collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => {
-            for token in &tokens {
-                //println!("({}, {:?}, {})", token.0, token.1, token.2);
-                println!("{:?}", token);
+            //for token in &tokens {
+            //    //println!("({}, {:?}, {})", token.0, token.1, token.2);
+            //    println!("{:?}", token);
+            //}
+            if tokens.is_empty() {
+                return;
             }
-            let mut p = Parser::new(tokens);
-            match p.parse() {
-                Ok(Some(ast)) => println!("{}", ast),
+            match Parser::new(tokens).parse() {
+                Ok(Some(ast)) => {
+                    //println!("{}", ast);
+                    match ast.interpret() {
+                        Ok(k) => println!("{}", k),
+                        Err(e) => println!("interpreter error: {:?}", e),
+                    }
+                }
                 Ok(None) => println!("empty!!!"),
                 Err(e) => println!("parsing error: {:?}", e),
             }

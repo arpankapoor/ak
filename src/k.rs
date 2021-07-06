@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::sym::Sym;
 
 #[derive(Debug)]
@@ -39,6 +41,7 @@ pub enum Adverb {
 
 #[derive(Debug)]
 pub enum K {
+    Nil,
     Char(u8),
     Int(i64),
     Float(f64),
@@ -53,4 +56,45 @@ pub enum K {
     FloatList(Vec<f64>),
     SymList(Vec<Sym>),
     GenList(Vec<K>),
+}
+
+impl fmt::Display for K {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn print_list<T: fmt::Display>(
+            f: &mut fmt::Formatter<'_>,
+            list: &[T],
+            parens: bool,
+            separator: &str,
+        ) -> fmt::Result {
+            if parens {
+                write!(f, "(")?;
+            }
+            if let Some((last, rest)) = list.split_last() {
+                for k in rest {
+                    write!(f, "{}{}", k, separator)?;
+                }
+                write!(f, "{}", last)?;
+            }
+            if parens {
+                write!(f, ")")?;
+            }
+            Ok(())
+        }
+
+        match self {
+            Self::Nil => write!(f, "nil"),
+            Self::Char(x) => write!(f, "{:?}", *x as char),
+            Self::Int(x) => write!(f, "{}", x),
+            Self::Float(x) => write!(f, "{}", x),
+            Self::Sym(x) => write!(f, "{}", x),
+            Self::Name(x) => write!(f, "{}", x),
+            Self::Verb(x) => write!(f, "{:?}", x),
+            Self::Adverb(x) => write!(f, "{:?}", x),
+            Self::CharList(x) => write!(f, "{:?}", String::from_utf8_lossy(x)),
+            Self::IntList(x) => print_list(f, x, false, " "),
+            Self::FloatList(x) => print_list(f, x, false, " "),
+            Self::SymList(x) => print_list(f, x, false, ""),
+            Self::GenList(x) => print_list(f, x, true, ";"),
+        }
+    }
 }

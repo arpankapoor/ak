@@ -31,8 +31,8 @@ impl fmt::Display for ASTNode {
         }
         match self {
             Self::Expr(Spanned(_, _, k)) => write!(f, "{:?}", k),
-            Self::Apply(Spanned(_, _, (func, args))) => {
-                write!(f, "Apply[{}, ", func)?;
+            Self::Apply(Spanned(_, _, (value, args))) => {
+                write!(f, "Apply[{}, ", value)?;
                 write_list(f, args)?;
                 write!(f, "]")
             }
@@ -103,7 +103,10 @@ impl Parser {
     fn program(&mut self) -> Result<Option<ASTNode>, Error> {
         let Spanned(start, end, mut exprs) = self.expr_list(0)?;
         if let Some(Spanned(s, _, _)) = self.tokens_iter.next() {
-            return Err(Error { location: s, code: ErrorCode::UnexpectedToken });
+            return Err(Error {
+                location: s,
+                code: ErrorCode::UnexpectedToken,
+            });
         }
         match exprs.len() {
             1 => Ok(exprs.remove(0)),
@@ -164,7 +167,7 @@ impl Parser {
             Token::FloatList(f) => ASTNode::Expr(Spanned(s, e, K::FloatList(f))),
             Token::SymList(sym) => ASTNode::Expr(Spanned(s, e, K::SymList(sym))),
             Token::Name(id) => ASTNode::Expr(Spanned(s, e, K::Name(id))),
-            _ => ASTNode::Expr(Spanned(0, 0, K::GenList(vec![]))),
+            _ => ASTNode::Expr(Spanned(0, 0, K::GenList(vec![]))), // replace with error or unreachable..
         }))
     }
 
