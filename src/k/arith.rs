@@ -8,35 +8,35 @@ type KResult = Result<K, RuntimeErrorCode>;
 macro_rules! arithmetic_operation {
     ($self: expr, $rhs: expr, $op: tt) => {
         match ($self, $rhs) {
-            (Self::Int(x), Self::Int(y)) => Ok(K::Int(x $op y)),
-            (Self::Int(x), Self::Float(y)) => Ok(K::Float(x as f64 $op y)),
-            (Self::Int(x), Self::IntList(y)) => Ok(K::IntList(y.iter().map(|e| x $op e).collect())),
-            (Self::Int(x), Self::FloatList(y)) => {
+            (K::Int(x), K::Int(y)) => Ok(K::Int(x $op y)),
+            (K::Int(x), K::Float(y)) => Ok(K::Float(x as f64 $op y)),
+            (K::Int(x), K::IntList(y)) => Ok(K::IntList(y.iter().map(|e| x $op e).collect())),
+            (K::Int(x), K::FloatList(y)) => {
                 let x = x as f64;
                 Ok(K::FloatList(y.iter().map(|e| x $op e).collect()))
             }
 
-            (Self::Float(x), Self::Int(y)) => Ok(K::Float(x $op y as f64)),
-            (Self::Float(x), Self::Float(y)) => Ok(K::Float(x $op y)),
-            (Self::Float(x), Self::IntList(y)) => {
+            (K::Float(x), K::Int(y)) => Ok(K::Float(x $op y as f64)),
+            (K::Float(x), K::Float(y)) => Ok(K::Float(x $op y)),
+            (K::Float(x), K::IntList(y)) => {
                 Ok(K::FloatList(y.iter().map(|&e| x $op e as f64).collect()))
             }
-            (Self::Float(x), Self::FloatList(y)) => {
+            (K::Float(x), K::FloatList(y)) => {
                 Ok(K::FloatList(y.iter().map(|e| x $op e).collect()))
             }
 
-            (Self::IntList(x), Self::Int(y)) => Ok(K::IntList(x.iter().map(|e| e $op y).collect())),
-            (Self::IntList(x), Self::Float(y)) => {
+            (K::IntList(x), K::Int(y)) => Ok(K::IntList(x.iter().map(|e| e $op y).collect())),
+            (K::IntList(x), K::Float(y)) => {
                 Ok(K::FloatList(x.iter().map(|&e| e as f64 $op y).collect()))
             }
-            (Self::IntList(x), Self::IntList(y)) => {
+            (K::IntList(x), K::IntList(y)) => {
                 if x.len() != y.len() {
                     Err(RuntimeErrorCode::Length)
                 } else {
                     Ok(K::IntList(x.iter().zip(y).map(|(x, y)| x $op y).collect()))
                 }
             }
-            (Self::IntList(x), Self::FloatList(y)) => {
+            (K::IntList(x), K::FloatList(y)) => {
                 if x.len() != y.len() {
                     Err(RuntimeErrorCode::Length)
                 } else {
@@ -46,14 +46,14 @@ macro_rules! arithmetic_operation {
                 }
             }
 
-            (Self::FloatList(x), Self::Int(y)) => {
+            (K::FloatList(x), K::Int(y)) => {
                 let y = y as f64;
                 Ok(K::FloatList(x.iter().map(|e| e $op y).collect()))
             }
-            (Self::FloatList(x), Self::Float(y)) => {
+            (K::FloatList(x), K::Float(y)) => {
                 Ok(K::FloatList(x.iter().map(|e| e $op y).collect()))
             }
-            (Self::FloatList(x), Self::IntList(y)) => {
+            (K::FloatList(x), K::IntList(y)) => {
                 if x.len() != y.len() {
                     Err(RuntimeErrorCode::Length)
                 } else {
@@ -62,7 +62,7 @@ macro_rules! arithmetic_operation {
                     ))
                 }
             }
-            (Self::FloatList(x), Self::FloatList(y)) => {
+            (K::FloatList(x), K::FloatList(y)) => {
                 if x.len() != y.len() {
                     Err(RuntimeErrorCode::Length)
                 } else {
