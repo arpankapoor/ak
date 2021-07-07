@@ -102,6 +102,10 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
+            K::Verb(Verb::Comma) => match args.len() {
+                0 => Ok(K::Verb(Verb::Comma)),
+                _ => Ok(K::GenList(args.into())), // todo: specialize cases
+            },
             _ => Err(RuntimeError {
                 location: start,
                 code: RuntimeErrorCode::Nyi,

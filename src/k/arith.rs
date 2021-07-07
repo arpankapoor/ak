@@ -1,125 +1,9 @@
-use std::fmt;
-use std::num::FpCategory;
 use std::ops::{Add, Div, Mul, Sub};
 
 use crate::error::RuntimeErrorCode;
-use crate::sym::Sym;
+use crate::k::K;
 
-#[derive(Debug)]
-pub enum Verb {
-    Colon = 0,
-    Plus = 1,
-    Minus = 2,
-    Star = 3,
-    Percent = 4,
-    And = 5,
-    Pipe = 6,
-    Caret = 7,
-    Eq = 8,
-    Lt = 9,
-    Gt = 10,
-    Dollar = 11,
-    Comma = 12,
-    Hash = 13,
-    Underscore = 14,
-    Tilde = 15,
-    Bang = 16,
-    Question = 17,
-    At = 18,
-    Dot = 19,
-    ZeroColon = 20,
-    OneColon = 21,
-    TwoColon = 22,
-}
-
-#[derive(Debug)]
-pub enum Adverb {
-    Quote = 0,
-    Slash = 1,
-    Backslash = 2,
-    QuoteColon = 3,
-    SlashColon = 4,
-    BackslashColon = 5,
-}
-
-#[derive(Debug)]
-pub enum K {
-    Nil,
-    Char(u8),
-    Int(i64),
-    Float(f64),
-    Sym(Sym),
-    Name(Sym),
-
-    Verb(Verb),
-    Adverb(Adverb),
-
-    CharList(Vec<u8>),
-    IntList(Vec<i64>),
-    FloatList(Vec<f64>),
-    SymList(Vec<Sym>),
-    GenList(Vec<K>),
-}
-
-impl fmt::Display for K {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn fmt_list<T: fmt::Display>(
-            f: &mut fmt::Formatter<'_>,
-            list: &[T],
-            parens: bool,
-            separator: &str,
-        ) -> fmt::Result {
-            if parens {
-                write!(f, "(")?;
-            }
-            if let Some((last, rest)) = list.split_last() {
-                for k in rest {
-                    write!(f, "{}{}", k, separator)?;
-                }
-                write!(f, "{}", last)?;
-            }
-            if parens {
-                write!(f, ")")?;
-            }
-            Ok(())
-        }
-
-        fn fmt_float(f: &mut fmt::Formatter<'_>, x: f64) -> fmt::Result {
-            match x.classify() {
-                FpCategory::Nan => write!(f, "0n"),
-                FpCategory::Infinite => {
-                    write!(f, "{}0w", if x.is_sign_negative() { "-" } else { "" })
-                }
-                _ => write!(f, "{}", x),
-            }
-        }
-
-        match self {
-            Self::Nil => write!(f, "nil"),
-            Self::Char(x) => write!(f, "{:?}", *x as char),
-            Self::Int(x) => write!(f, "{}", x),
-            Self::Float(x) => fmt_float(f, *x),
-            Self::Sym(x) => write!(f, "{}", x),
-            Self::Name(x) => write!(f, "{}", x),
-            Self::Verb(x) => write!(f, "{:?}", x),
-            Self::Adverb(x) => write!(f, "{:?}", x),
-            Self::CharList(x) => write!(f, "{:?}", String::from_utf8_lossy(x)),
-            Self::IntList(x) => fmt_list(f, x, false, " "),
-            Self::FloatList(x) => {
-                if let Some((last, rest)) = x.split_last() {
-                    for k in rest {
-                        fmt_float(f, *k)?;
-                        write!(f, " ")?;
-                    }
-                    fmt_float(f, *last)?;
-                }
-                Ok(())
-            }
-            Self::SymList(x) => fmt_list(f, x, false, ""),
-            Self::GenList(x) => fmt_list(f, x, true, ";"),
-        }
-    }
-}
+type KResult = Result<K, RuntimeErrorCode>;
 
 macro_rules! arithmetic_operation {
     ($self: expr, $rhs: expr, $op: tt) => {
@@ -191,8 +75,6 @@ macro_rules! arithmetic_operation {
     }
 }
 
-type KResult = Result<K, RuntimeErrorCode>;
-
 impl Add for K {
     type Output = KResult;
 
@@ -232,6 +114,11 @@ impl Div for K {
                 let x = x as f64;
                 Ok(K::FloatList(y.iter().map(|e| x / e).collect()))
             }
+            (Self::Int(x), Self::GenList(y)) => Ok(K::GenList(
+                y.into_iter()
+                    .map(|e| K::Float(x as f64) / e)
+                    .collect::<Result<_, _>>()?,
+            )),
 
             (Self::Float(x), Self::Int(y)) => Ok(K::Float(x / y as f64)),
             (Self::Float(x), Self::Float(y)) => Ok(K::Float(x / y)),
@@ -241,6 +128,11 @@ impl Div for K {
             (Self::Float(x), Self::FloatList(y)) => {
                 Ok(K::FloatList(y.iter().map(|e| x / e).collect()))
             }
+            (Self::Float(x), Self::GenList(y)) => Ok(K::GenList(
+                y.into_iter()
+                    .map(|e| K::Float(x) / e)
+                    .collect::<Result<_, _>>()?,
+            )),
 
             (Self::IntList(x), Self::Int(y)) => {
                 let y = y as f64;
@@ -267,6 +159,18 @@ impl Div for K {
                     ))
                 }
             }
+            (Self::IntList(x), Self::GenList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::GenList(
+                        y.into_iter()
+                            .zip(x)
+                            .map(|(y, x)| K::Float(x as f64) / y)
+                            .collect::<Result<_, _>>()?,
+                    ))
+                }
+            }
 
             (Self::FloatList(x), Self::Int(y)) => {
                 let y = y as f64;
@@ -289,6 +193,65 @@ impl Div for K {
                     Err(RuntimeErrorCode::Length)
                 } else {
                     Ok(K::FloatList(x.iter().zip(y).map(|(&x, y)| x / y).collect()))
+                }
+            }
+            (Self::FloatList(x), Self::GenList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::GenList(
+                        y.into_iter()
+                            .zip(x)
+                            .map(|(y, x)| K::Float(x) / y)
+                            .collect::<Result<_, _>>()?,
+                    ))
+                }
+            }
+
+            (Self::GenList(x), Self::Int(y)) => Ok(K::GenList(
+                x.into_iter()
+                    .map(|e| e / K::Float(y as f64))
+                    .collect::<Result<_, _>>()?,
+            )),
+            (Self::GenList(x), Self::Float(y)) => Ok(K::GenList(
+                x.into_iter()
+                    .map(|e| e / K::Float(y))
+                    .collect::<Result<_, _>>()?,
+            )),
+            (Self::GenList(x), Self::IntList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::GenList(
+                        x.into_iter()
+                            .zip(y)
+                            .map(|(x, y)| x / K::Float(y as f64))
+                            .collect::<Result<_, _>>()?,
+                    ))
+                }
+            }
+            (Self::GenList(x), Self::FloatList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::GenList(
+                        x.into_iter()
+                            .zip(y)
+                            .map(|(x, y)| x / K::Float(y))
+                            .collect::<Result<_, _>>()?,
+                    ))
+                }
+            }
+            (Self::GenList(x), Self::GenList(y)) => {
+                if x.len() != y.len() {
+                    Err(RuntimeErrorCode::Length)
+                } else {
+                    Ok(K::GenList(
+                        x.into_iter()
+                            .zip(y)
+                            .map(|(x, y)| x / y)
+                            .collect::<Result<_, _>>()?,
+                    ))
                 }
             }
 
