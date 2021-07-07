@@ -2,11 +2,13 @@
 
 use std::env;
 use std::ffi::OsString;
+use std::fmt::Debug;
 use std::fs;
 use std::io;
 use std::io::{BufRead, Write};
 use std::process;
 
+use crate::error::KError;
 use crate::parser::Parser;
 use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
@@ -34,6 +36,15 @@ fn print_prompt() -> io::Result<()> {
     io::stdout().flush()
 }
 
+fn print_error<T: Debug>(src: &[u8], error: KError<T>) {
+    println!(
+        "{:?}\n\t{}\n\t{}^",
+        error.code,
+        String::from_utf8_lossy(src),
+        " ".repeat(error.location)
+    );
+}
+
 fn run(src: &[u8]) {
     match Tokenizer::new(src).collect::<Result<Vec<_>, _>>() {
         Ok(tokens) => {
@@ -49,14 +60,23 @@ fn run(src: &[u8]) {
                     //println!("{}", ast);
                     match ast.interpret() {
                         Ok(k) => println!("{}", k),
-                        Err(e) => println!("interpreter error: {:?}", e),
+                        Err(e) => {
+                            print!("runtime error: ");
+                            print_error(src, e);
+                        }
                     }
                 }
                 Ok(None) => println!("empty!!!"),
-                Err(e) => println!("parsing error: {:?}", e),
+                Err(e) => {
+                    print!("parsing error: ");
+                    print_error(src, e);
+                }
             }
         }
-        Err(e) => println!("tokenizer error: {:?}", e),
+        Err(e) => {
+            print!("tokenizer error: ");
+            print_error(src, e);
+        }
     }
 }
 

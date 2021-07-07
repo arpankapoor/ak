@@ -186,7 +186,7 @@ macro_rules! arithmetic_operation {
                 }
             }
 
-            (_, _) => Err(RuntimeErrorCode::Nyi),
+            (_, _) => Err(RuntimeErrorCode::Type),
         }
     }
 }
@@ -292,7 +292,7 @@ impl Div for K {
                 }
             }
 
-            (_, _) => Err(RuntimeErrorCode::Nyi),
+            (_, _) => Err(RuntimeErrorCode::Type),
         }
     }
 }

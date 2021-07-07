@@ -2,6 +2,7 @@ use std::fmt;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
+use crate::error::{ParserError, ParserErrorCode};
 use crate::k::Verb;
 use crate::k::K;
 use crate::span::Spanned;
@@ -63,19 +64,6 @@ impl ASTNode {
     }
 }
 
-#[derive(Debug)]
-pub struct Error {
-    location: usize,
-    code: ErrorCode,
-}
-
-#[derive(Debug)]
-pub enum ErrorCode {
-    UnclosedParens,
-    UnclosedBrackets,
-    UnexpectedToken,
-}
-
 pub struct Parser {
     tokens_iter: Peekable<IntoIter<Spanned<Token>>>,
 }
@@ -96,16 +84,16 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Option<ASTNode>, Error> {
+    pub fn parse(&mut self) -> Result<Option<ASTNode>, ParserError> {
         self.program()
     }
 
-    fn program(&mut self) -> Result<Option<ASTNode>, Error> {
+    fn program(&mut self) -> Result<Option<ASTNode>, ParserError> {
         let Spanned(start, end, mut exprs) = self.expr_list(0)?;
         if let Some(Spanned(s, _, _)) = self.tokens_iter.next() {
-            return Err(Error {
+            return Err(ParserError {
                 location: s,
-                code: ErrorCode::UnexpectedToken,
+                code: ParserErrorCode::UnexpectedToken,
             });
         }
         match exprs.len() {
@@ -114,7 +102,7 @@ impl Parser {
         }
     }
 
-    fn expr(&mut self) -> Result<Option<ASTNode>, Error> {
+    fn expr(&mut self) -> Result<Option<ASTNode>, ParserError> {
         let e1 = extract_ast!(self.subexpr());
         let res = match self.tokens_iter.next_if(|x| matches!(x.2, Token::Verb(_))) {
             Some(Spanned(s, e, Token::Verb(v))) => {
@@ -144,7 +132,7 @@ impl Parser {
         Ok(Some(res))
     }
 
-    fn subexpr(&mut self) -> Result<Option<ASTNode>, Error> {
+    fn subexpr(&mut self) -> Result<Option<ASTNode>, ParserError> {
         let Spanned(s, e, t) = match self
             .tokens_iter
             .next_if(|x| !matches!(x.2, Token::Semi | Token::RtParen | Token::RtBracket))
@@ -171,7 +159,7 @@ impl Parser {
         }))
     }
 
-    fn paren(&mut self, start: usize) -> Result<Option<ASTNode>, Error> {
+    fn paren(&mut self, start: usize) -> Result<Option<ASTNode>, ParserError> {
         let Spanned(_, _, mut exprs) = self.expr_list(start)?;
         match self.tokens_iter.next_if(|x| matches!(x.2, Token::RtParen)) {
             Some(Spanned(_, end, _)) => match exprs.len() {
@@ -186,28 +174,28 @@ impl Parser {
                     ),
                 )))),
             },
-            None => Err(Error {
+            None => Err(ParserError {
                 location: start,
-                code: ErrorCode::UnclosedParens,
+                code: ParserErrorCode::UnclosedParens,
             }),
         }
     }
 
-    fn bracket(&mut self, start: usize) -> Result<Option<ASTNode>, Error> {
+    fn bracket(&mut self, start: usize) -> Result<Option<ASTNode>, ParserError> {
         let Spanned(_, _, exprs) = self.expr_list(start)?;
         match self
             .tokens_iter
             .next_if(|x| matches!(x.2, Token::RtBracket))
         {
             Some(Spanned(_, end, _)) => Ok(Some(ASTNode::ExprList(Spanned(start, end, exprs)))),
-            None => Err(Error {
+            None => Err(ParserError {
                 location: start,
-                code: ErrorCode::UnclosedBrackets,
+                code: ParserErrorCode::UnclosedBrackets,
             }),
         }
     }
 
-    fn expr_list(&mut self, start: usize) -> Result<Spanned<Vec<Option<ASTNode>>>, Error> {
+    fn expr_list(&mut self, start: usize) -> Result<Spanned<Vec<Option<ASTNode>>>, ParserError> {
         let mut list = Vec::new();
         let mut end = start;
         loop {

@@ -1,6 +1,6 @@
-use std::num::{ParseFloatError, ParseIntError};
 use std::str;
 
+use crate::error::{LexerError, LexerErrorCode};
 use crate::k::{Adverb, Verb};
 use crate::span::Spanned;
 use crate::sym::Sym;
@@ -10,13 +10,13 @@ mod stream;
 
 #[derive(Debug)]
 pub enum Token {
-    LtParen,   // (
-    RtParen,   // )
-    LtBrace,   // {
-    RtBrace,   // }
-    LtBracket, // [
-    RtBracket, // ]
-    Semi,      // ;
+    LtParen,
+    RtParen,
+    LtBrace,
+    RtBrace,
+    LtBracket,
+    RtBracket,
+    Semi,
 
     Verb(Verb),
     Adverb(Adverb),
@@ -74,36 +74,6 @@ impl From<Vec<Sym>> for Token {
     }
 }
 
-#[derive(Debug)]
-pub struct Error {
-    location: usize,
-    code: ErrorCode,
-}
-
-#[derive(Debug)]
-pub enum ErrorCode {
-    UnterminatedString,
-    UnterminatedEscape,
-    UnterminatedFloatExponent,
-    UnrecognizedEscape,
-    UnrecognizedToken,
-    InvalidNumber,
-    ParseFloatError(ParseFloatError),
-    ParseIntError(ParseIntError),
-}
-
-impl From<ParseFloatError> for ErrorCode {
-    fn from(e: ParseFloatError) -> Self {
-        ErrorCode::ParseFloatError(e)
-    }
-}
-
-impl From<ParseIntError> for ErrorCode {
-    fn from(e: ParseIntError) -> Self {
-        ErrorCode::ParseIntError(e)
-    }
-}
-
 pub struct Tokenizer<'a> {
     stream: ByteStream<'a>,
     start: usize,
@@ -125,8 +95,8 @@ impl<'a> Tokenizer<'a> {
         Some(Ok(Spanned(self.start, self.stream.next_index(), token)))
     }
 
-    fn error(&self, error: ErrorCode) -> Option<<Self as Iterator>::Item> {
-        Some(Err(Error {
+    fn error(&self, error: LexerErrorCode) -> Option<<Self as Iterator>::Item> {
+        Some(Err(LexerError {
             location: self.start,
             code: error,
         }))
@@ -162,15 +132,15 @@ impl<'a> Tokenizer<'a> {
                     Some(b'n') => b'\n',
                     Some(b'r') => b'\r',
                     Some(b't') => b'\t',
-                    Some(_) => return self.error(ErrorCode::UnrecognizedEscape),
-                    None => return self.error(ErrorCode::UnterminatedEscape),
+                    Some(_) => return self.error(LexerErrorCode::UnrecognizedEscape),
+                    None => return self.error(LexerErrorCode::UnterminatedEscape),
                 },
                 _ => c,
             });
         }
         match self.stream.next_if_eq(b'"') {
             Some(_) => self.token(string.into()),
-            None => self.error(ErrorCode::UnterminatedString),
+            None => self.error(LexerErrorCode::UnterminatedString),
         }
     }
 
@@ -199,6 +169,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     // ([^)}\]0-9a-zA-Z]-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?( -?([0-9]+(\.[0-9]*)?|\.[0-9]+)(e[-+]?[0-9]+)?)*
+    // todo - handle infinities/nulls
     fn number(&mut self) -> Option<<Self as Iterator>::Item> {
         let mut is_float = false;
         let mut start = self.start;
@@ -216,7 +187,7 @@ impl<'a> Tokenizer<'a> {
                 self.stream.next_if(|x| matches!(x, b'+' | b'-'));
                 if self.stream.consume_while(|x| x.is_ascii_digit()) == 0 {
                     self.start = start;
-                    return self.error(ErrorCode::UnterminatedFloatExponent);
+                    return self.error(LexerErrorCode::UnterminatedFloatExponent);
                 }
             }
             let backtrack = self.stream.clone();
@@ -232,7 +203,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 Some(b'.' | b'a'..=b'z' | b'A'..=b'Z') => {
                     self.start = start;
-                    return self.error(ErrorCode::InvalidNumber);
+                    return self.error(LexerErrorCode::InvalidNumber);
                 }
                 _ => break,
             }
@@ -256,7 +227,7 @@ impl<'a> Tokenizer<'a> {
 }
 
 impl Iterator for Tokenizer<'_> {
-    type Item = Result<Spanned<Token>, Error>;
+    type Item = Result<Spanned<Token>, LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -340,7 +311,7 @@ impl Iterator for Tokenizer<'_> {
                     continue;
                 }
                 b'\n' => self.newline(),
-                _ => self.error(ErrorCode::UnrecognizedToken),
+                _ => self.error(LexerErrorCode::UnrecognizedToken),
             };
             self.bump();
             break tok;

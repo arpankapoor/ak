@@ -1,18 +1,12 @@
 use std::collections::VecDeque;
 
-use crate::error::RuntimeErrorCode;
+use crate::error::{RuntimeError, RuntimeErrorCode};
 use crate::k::{Verb, K};
 use crate::parser::ASTNode;
 use crate::span::Spanned;
 
-#[derive(Debug)]
-pub struct Error {
-    location: usize,
-    code: RuntimeErrorCode,
-}
-
 impl ASTNode {
-    pub fn interpret(self) -> Result<K, Error> {
+    pub fn interpret(self) -> Result<K, RuntimeError> {
         match self {
             ASTNode::Expr(Spanned(_, _, k)) => Ok(k),
             ASTNode::Apply(Spanned(_, _, (value, args))) => {
@@ -25,15 +19,15 @@ impl ASTNode {
                 }
                 value.apply(kargs)
             }
-            ASTNode::ExprList(Spanned(s, _, _)) => Err(Error {
+            ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError {
                 location: s,
                 code: RuntimeErrorCode::Nyi,
             }),
         }
     }
 
-    fn apply(self, mut args: VecDeque<K>) -> Result<K, Error> {
-        let (start, end) = (self.start(), self.end());
+    fn apply(self, mut args: VecDeque<K>) -> Result<K, RuntimeError> {
+        let (start, _) = (self.start(), self.end());
         let k = self.interpret()?;
         match k {
             K::Verb(Verb::Plus) => match args.len() {
@@ -43,13 +37,13 @@ impl ASTNode {
                     let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
                     match arg0 + arg1 {
                         Ok(res) => Ok(res),
-                        Err(e) => Err(Error {
+                        Err(e) => Err(RuntimeError {
                             location: start,
                             code: e,
                         }),
                     }
                 }
-                _ => Err(Error {
+                _ => Err(RuntimeError {
                     location: start,
                     code: RuntimeErrorCode::Rank,
                 }),
@@ -61,13 +55,13 @@ impl ASTNode {
                     let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
                     match arg0 - arg1 {
                         Ok(res) => Ok(res),
-                        Err(e) => Err(Error {
+                        Err(e) => Err(RuntimeError {
                             location: start,
                             code: e,
                         }),
                     }
                 }
-                _ => Err(Error {
+                _ => Err(RuntimeError {
                     location: start,
                     code: RuntimeErrorCode::Rank,
                 }),
@@ -79,13 +73,13 @@ impl ASTNode {
                     let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
                     match arg0 * arg1 {
                         Ok(res) => Ok(res),
-                        Err(e) => Err(Error {
+                        Err(e) => Err(RuntimeError {
                             location: start,
                             code: e,
                         }),
                     }
                 }
-                _ => Err(Error {
+                _ => Err(RuntimeError {
                     location: start,
                     code: RuntimeErrorCode::Rank,
                 }),
@@ -97,18 +91,18 @@ impl ASTNode {
                     let (arg0, arg1) = (args.pop_front().unwrap(), args.pop_front().unwrap());
                     match arg0 / arg1 {
                         Ok(res) => Ok(res),
-                        Err(e) => Err(Error {
+                        Err(e) => Err(RuntimeError {
                             location: start,
                             code: e,
                         }),
                     }
                 }
-                _ => Err(Error {
+                _ => Err(RuntimeError {
                     location: start,
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            _ => Err(Error {
+            _ => Err(RuntimeError {
                 location: start,
                 code: RuntimeErrorCode::Nyi,
             }),
