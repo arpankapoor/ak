@@ -27,12 +27,12 @@ impl ASTNode {
         }
     }
 
-    fn apply(self, mut args: VecDeque<K>) -> Result<K, RuntimeError> {
+    fn apply(self, args: VecDeque<K>) -> Result<K, RuntimeError> {
         let (start, _) = (self.start(), self.end());
         let k = self.interpret()?;
         match k {
-            v @ K::Verb(Verb::Plus) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::Plus) => match args.len() {
+                0 => Ok(k),
                 1 => todo!("flip"),
                 2 => match &args[0] + &args[1] {
                     Ok(res) => Ok(res),
@@ -46,8 +46,8 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            v @ K::Verb(Verb::Minus) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::Minus) => match args.len() {
+                0 => Ok(k),
                 1 => todo!("neg"),
                 2 => match &args[0] - &args[1] {
                     Ok(res) => Ok(res),
@@ -61,8 +61,8 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            v @ K::Verb(Verb::Star) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::Star) => match args.len() {
+                0 => Ok(k),
                 1 => todo!("first"),
                 2 => match &args[0] * &args[1] {
                     Ok(res) => Ok(res),
@@ -76,8 +76,8 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            v @ K::Verb(Verb::Percent) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::Percent) => match args.len() {
+                0 => Ok(k),
                 1 => todo!("first"),
                 2 => match &args[0] / &args[1] {
                     Ok(res) => Ok(res),
@@ -91,14 +91,14 @@ impl ASTNode {
                     code: RuntimeErrorCode::Rank,
                 }),
             },
-            v @ K::Verb(Verb::Comma) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::Comma) => match args.len() {
+                0 => Ok(k),
                 _ => Ok(Vec::from(args).into()), // todo: specialize cases
             },
-            v @ K::Verb(Verb::At) => match args.len() {
-                0 => Ok(v),
+            K::Verb(Verb::At) => match args.len() {
+                0 => Ok(k),
                 1 => {
-                    Ok(K::Sym(Sym::new(match args.pop_front().unwrap() {
+                    Ok(K::Sym(Sym::new(match &args[0] {
                         K::Nil => b"nil",
                         K::Char(_) => b"c",
                         K::Int(_) => b"i",
