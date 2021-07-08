@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use crate::error::RuntimeErrorCode;
 use crate::k::{KResult, K};
@@ -365,6 +365,21 @@ impl Div for &K {
                 .into()),
 
             (_, _) => Err(RuntimeErrorCode::Type),
+        }
+    }
+}
+
+impl Neg for &K {
+    type Output = KResult;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            K::Int(x) => Ok(K::Int(-x)),
+            K::Float(x) => Ok(K::Float(-x)),
+            K::IntList(x) => Ok(K::IntList(x.iter().map(|i| -i).collect())),
+            K::FloatList(x) => Ok(K::FloatList(x.iter().map(|i| -i).collect())),
+            K::GenList(x) => Ok(x.iter().map(|i| -i).collect::<Result<Vec<_>, _>>()?.into()),
+            _ => Err(RuntimeErrorCode::Type),
         }
     }
 }

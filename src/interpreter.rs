@@ -20,10 +20,7 @@ impl ASTNode {
                 }
                 value.apply(kargs)
             }
-            ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError {
-                location: s,
-                code: RuntimeErrorCode::Nyi,
-            }),
+            ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError::new(s, RuntimeErrorCode::Nyi)),
         }
     }
 
@@ -34,62 +31,26 @@ impl ASTNode {
             K::Verb(Verb::Plus) => match args.len() {
                 0 => Ok(k),
                 1 => todo!("flip"),
-                2 => match &args[0] + &args[1] {
-                    Ok(res) => Ok(res),
-                    Err(e) => Err(RuntimeError {
-                        location: start,
-                        code: e,
-                    }),
-                },
-                _ => Err(RuntimeError {
-                    location: start,
-                    code: RuntimeErrorCode::Rank,
-                }),
+                2 => (&args[0] + &args[1]).map_err(|e| RuntimeError::new(start, e)),
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
             K::Verb(Verb::Minus) => match args.len() {
                 0 => Ok(k),
-                1 => todo!("neg"),
-                2 => match &args[0] - &args[1] {
-                    Ok(res) => Ok(res),
-                    Err(e) => Err(RuntimeError {
-                        location: start,
-                        code: e,
-                    }),
-                },
-                _ => Err(RuntimeError {
-                    location: start,
-                    code: RuntimeErrorCode::Rank,
-                }),
+                1 => (-&args[0]).map_err(|e| RuntimeError::new(start, e)),
+                2 => (&args[0] - &args[1]).map_err(|e| RuntimeError::new(start, e)),
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
             K::Verb(Verb::Star) => match args.len() {
                 0 => Ok(k),
                 1 => todo!("first"),
-                2 => match &args[0] * &args[1] {
-                    Ok(res) => Ok(res),
-                    Err(e) => Err(RuntimeError {
-                        location: start,
-                        code: e,
-                    }),
-                },
-                _ => Err(RuntimeError {
-                    location: start,
-                    code: RuntimeErrorCode::Rank,
-                }),
+                2 => (&args[0] * &args[1]).map_err(|e| RuntimeError::new(start, e)),
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
             K::Verb(Verb::Percent) => match args.len() {
                 0 => Ok(k),
                 1 => todo!("first"),
-                2 => match &args[0] / &args[1] {
-                    Ok(res) => Ok(res),
-                    Err(e) => Err(RuntimeError {
-                        location: start,
-                        code: e,
-                    }),
-                },
-                _ => Err(RuntimeError {
-                    location: start,
-                    code: RuntimeErrorCode::Rank,
-                }),
+                2 => (&args[0] / &args[1]).map_err(|e| RuntimeError::new(start, e)),
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
             K::Verb(Verb::Comma) => match args.len() {
                 0 => Ok(k),
@@ -97,34 +58,26 @@ impl ASTNode {
             },
             K::Verb(Verb::At) => match args.len() {
                 0 => Ok(k),
-                1 => {
-                    Ok(K::Sym(Sym::new(match &args[0] {
-                        K::Nil => b"nil",
-                        K::Char(_) => b"c",
-                        K::Int(_) => b"i",
-                        K::Float(_) => b"f",
-                        K::Sym(_) => b"n",
-                        K::Name(_) => b"n", // todo: lookup variable
+                1 => Ok(K::Sym(Sym::new(match &args[0] {
+                    K::Nil => b"nil",
+                    K::Char(_) => b"c",
+                    K::Int(_) => b"i",
+                    K::Float(_) => b"f",
+                    K::Sym(_) => b"n",
+                    K::Name(_) => b"n", // todo: lookup variable
 
-                        K::Verb(_) => b"v",
-                        K::Adverb(_) => b"a",
+                    K::Verb(_) => b"v",
+                    K::Adverb(_) => b"a",
 
-                        K::CharList(_) => b"C",
-                        K::IntList(_) => b"I",
-                        K::FloatList(_) => b"F",
-                        K::SymList(_) => b"N",
-                        K::GenList(_) => b"l",
-                    })))
-                }
-                _ => Err(RuntimeError {
-                    location: start,
-                    code: RuntimeErrorCode::Nyi,
-                }),
+                    K::CharList(_) => b"C",
+                    K::IntList(_) => b"I",
+                    K::FloatList(_) => b"F",
+                    K::SymList(_) => b"N",
+                    K::GenList(_) => b"l",
+                }))),
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Nyi)),
             },
-            _ => Err(RuntimeError {
-                location: start,
-                code: RuntimeErrorCode::Nyi,
-            }),
+            _ => Err(RuntimeError::new(start, RuntimeErrorCode::Nyi)),
         }
     }
 }

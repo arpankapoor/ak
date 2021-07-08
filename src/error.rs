@@ -49,3 +49,9 @@ pub enum RuntimeErrorCode {
 pub type LexerError = KError<LexerErrorCode>;
 pub type ParserError = KError<ParserErrorCode>;
 pub type RuntimeError = KError<RuntimeErrorCode>;
+
+impl RuntimeError {
+    pub fn new(location: usize, code: RuntimeErrorCode) -> Self {
+        Self { location, code }
+    }
+}
