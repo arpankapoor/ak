@@ -1,6 +1,9 @@
 use std::fmt;
+use std::hint::unreachable_unchecked;
+use std::mem;
 use std::num::FpCategory;
 
+use crate::error::RuntimeErrorCode;
 use crate::sym::Sym;
 
 mod arith;
@@ -61,6 +64,8 @@ pub enum K {
     GenList(Vec<K>),
 }
 
+type KResult = Result<K, RuntimeErrorCode>;
+
 impl fmt::Display for K {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn fmt_list<T: fmt::Display>(
@@ -118,5 +123,57 @@ impl fmt::Display for K {
             Self::SymList(x) => fmt_list(f, x, false, ""),
             Self::GenList(x) => fmt_list(f, x, true, ";"),
         }
+    }
+}
+
+macro_rules! impl_from {
+    ($type: ty, $kvariant: path) => {
+        impl From<$type> for K {
+            fn from(v: $type) -> K {
+                $kvariant(v)
+            }
+        }
+    };
+}
+
+impl_from!(u8, K::Char);
+impl_from!(i64, K::Int);
+impl_from!(f64, K::Float);
+impl_from!(Sym, K::Sym);
+impl_from!(Vec<u8>, K::CharList);
+impl_from!(Vec<i64>, K::IntList);
+impl_from!(Vec<f64>, K::FloatList);
+impl_from!(Vec<Sym>, K::SymList);
+
+impl From<Vec<K>> for K {
+    fn from(v: Vec<K>) -> Self {
+        if let Some((first, rest)) = v.split_first() {
+            if matches!(first, K::Char(_) | K::Int(_) | K::Float(_) | K::Sym(_))
+                && rest
+                    .iter()
+                    .all(|x| mem::discriminant(first) == mem::discriminant(x))
+            {
+                macro_rules! to_simple_list {
+                    ($list: ident, $variant: path) => {
+                        $list
+                            .into_iter()
+                            .map(|k| match k {
+                                $variant(x) => x,
+                                _ => unsafe { unreachable_unchecked() },
+                            })
+                            .collect::<Vec<_>>()
+                            .into()
+                    };
+                }
+                return match first {
+                    K::Char(_) => to_simple_list!(v, K::Char),
+                    K::Int(_) => to_simple_list!(v, K::Int),
+                    K::Float(_) => to_simple_list!(v, K::Float),
+                    K::Sym(_) => to_simple_list!(v, K::Sym),
+                    _ => unsafe { unreachable_unchecked() },
+                };
+            }
+        }
+        K::GenList(v)
     }
 }
