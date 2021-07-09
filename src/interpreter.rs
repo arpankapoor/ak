@@ -25,7 +25,7 @@ impl ASTNode {
     }
 
     fn apply(self, args: VecDeque<K>) -> Result<K, RuntimeError> {
-        let (start, _) = (self.start(), self.end());
+        let start = self.start();
         let k = self.interpret()?;
         match k {
             K::Verb(Verb::Plus) => match args.len() {
@@ -55,6 +55,14 @@ impl ASTNode {
             K::Verb(Verb::Comma) => match args.len() {
                 0 => Ok(k),
                 _ => Ok(Vec::from(args).into()), // todo: specialize cases
+            },
+            K::Verb(Verb::Bang) => match args.len() {
+                0 => Ok(k),
+                1 => match &args[0] {
+                    K::Int(x) => Ok(K::IntList((0..*x).collect())),
+                    _ => Err(RuntimeError::new(start, RuntimeErrorCode::Type)),
+                },
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Nyi)),
             },
             K::Verb(Verb::At) => match args.len() {
                 0 => Ok(k),

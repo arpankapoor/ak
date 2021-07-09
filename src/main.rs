@@ -38,7 +38,7 @@ fn print_prompt() -> io::Result<()> {
 
 fn print_error<T: Debug>(src: &[u8], error: KError<T>) {
     println!(
-        "{:?}\n\t{}\n\t{}^",
+        "{:?}\n    {}\n    {}^",
         error.code,
         String::from_utf8_lossy(src),
         " ".repeat(error.location)
