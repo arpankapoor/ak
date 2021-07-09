@@ -104,30 +104,30 @@ macro_rules! impl_k_arith {
                     (K::Float(x), y) => *x $op y,
 
                     (K::IntList(x), K::IntList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(K::IntList(x.iter().zip(y).map(|(i, j)| i $op j).collect()))
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::IntList(x), K::FloatList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(K::FloatList(
                                 x.iter().zip(y).map(|(&i, j)| i as f64 $op j).collect(),
                             ))
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::IntList(x), K::GenList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
                                 .map(|(&i, j)| i $op j)
                                 .collect::<Result<Vec<_>, _>>()?
                                 .into())
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::IntList(x), y) => Ok(x
@@ -137,30 +137,30 @@ macro_rules! impl_k_arith {
                         .into()),
 
                     (K::FloatList(x), K::IntList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(K::FloatList(
                                 x.iter().zip(y).map(|(i, &j)| i $op j as f64).collect(),
                             ))
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::FloatList(x), K::FloatList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(K::FloatList(x.iter().zip(y).map(|(i, j)| i $op j).collect()))
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::FloatList(x), K::GenList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
                                 .map(|(&i, j)| i $op j)
                                 .collect::<Result<Vec<_>, _>>()?
                                 .into())
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::FloatList(x), y) => Ok(x
@@ -170,36 +170,36 @@ macro_rules! impl_k_arith {
                         .into()),
 
                     (K::GenList(x), K::IntList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
                                 .map(|(i, &j)| i $op j)
                                 .collect::<Result<Vec<_>, _>>()?
                                 .into())
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::GenList(x), K::FloatList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
                                 .map(|(i, &j)| i $op j)
                                 .collect::<Result<Vec<_>, _>>()?
                                 .into())
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::GenList(x), K::GenList(y)) => {
-                        if x.len() != y.len() {
-                            Err(RuntimeErrorCode::Length)
-                        } else {
+                        if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
                                 .map(|(i, j)| i $op j)
                                 .collect::<Result<Vec<_>, _>>()?
                                 .into())
+                        } else {
+                            Err(RuntimeErrorCode::Length)
                         }
                     }
                     (K::GenList(x), y) => Ok(x
@@ -255,35 +255,35 @@ impl Div for &K {
             (K::Float(x), y) => *x / y,
 
             (K::IntList(x), K::IntList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(K::FloatList(
                         x.iter()
                             .zip(y)
                             .map(|(&i, &j)| i as f64 / j as f64)
                             .collect(),
                     ))
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::IntList(x), K::FloatList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(K::FloatList(
                         x.iter().zip(y).map(|(&i, j)| i as f64 / j).collect(),
                     ))
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::IntList(x), K::GenList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
                         .map(|(&i, j)| i as f64 / j)
                         .collect::<Result<Vec<_>, _>>()?
                         .into())
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::IntList(x), y) => Ok(x
@@ -293,30 +293,30 @@ impl Div for &K {
                 .into()),
 
             (K::FloatList(x), K::IntList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(K::FloatList(
                         x.iter().zip(y).map(|(i, &j)| i / j as f64).collect(),
                     ))
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::FloatList(x), K::FloatList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(K::FloatList(x.iter().zip(y).map(|(i, j)| i / j).collect()))
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::FloatList(x), K::GenList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
                         .map(|(&i, j)| i / j)
                         .collect::<Result<Vec<_>, _>>()?
                         .into())
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::FloatList(x), y) => Ok(x
@@ -326,36 +326,36 @@ impl Div for &K {
                 .into()),
 
             (K::GenList(x), K::IntList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
                         .map(|(i, &j)| i / j as f64)
                         .collect::<Result<Vec<_>, _>>()?
                         .into())
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::GenList(x), K::FloatList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
                         .map(|(i, &j)| i / j)
                         .collect::<Result<Vec<_>, _>>()?
                         .into())
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::GenList(x), K::GenList(y)) => {
-                if x.len() != y.len() {
-                    Err(RuntimeErrorCode::Length)
-                } else {
+                if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
                         .map(|(i, j)| i / j)
                         .collect::<Result<Vec<_>, _>>()?
                         .into())
+                } else {
+                    Err(RuntimeErrorCode::Length)
                 }
             }
             (K::GenList(x), y) => Ok(x
