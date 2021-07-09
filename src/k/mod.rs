@@ -8,7 +8,7 @@ use crate::sym::Sym;
 
 mod arith;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Verb {
     Colon = 0,
     Plus = 1,
@@ -35,7 +35,7 @@ pub enum Verb {
     TwoColon = 22,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Adverb {
     Quote = 0,
     Slash = 1,
@@ -45,7 +45,7 @@ pub enum Adverb {
     BackslashColon = 5,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum K {
     Nil,
     Char(u8),

@@ -13,6 +13,7 @@ use crate::parser::Parser;
 use crate::tok::Tokenizer;
 use crate::util::TrimEnd;
 
+mod environ;
 mod error;
 mod interpreter;
 mod k;
@@ -57,7 +58,7 @@ fn run(src: &[u8]) {
             }
             match Parser::new(tokens).parse() {
                 Ok(Some(ast)) => {
-                    //println!("{}", ast);
+                    println!("{}", ast);
                     match ast.interpret() {
                         Ok(k) => println!("{}", k),
                         Err(e) => {

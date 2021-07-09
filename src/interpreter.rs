@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use crate::environ::{define_variable, get_variable};
 use crate::error::{RuntimeError, RuntimeErrorCode};
 use crate::k::{Verb, K};
 use crate::parser::ASTNode;
@@ -55,6 +56,33 @@ impl ASTNode {
             K::Verb(Verb::Comma) => match args.len() {
                 0 => Ok(k),
                 _ => Ok(Vec::from(args).into()), // todo: specialize cases
+            },
+            K::Verb(Verb::Colon) => match args.len() {
+                0 => Ok(k),
+                2 => match &args[0] {
+                    K::Name(lhs) => match args[1].clone() {
+                        K::Name(rhs) => match get_variable(rhs) {
+                            Some(value) => {
+                                define_variable(*lhs, value.clone());
+                                Ok(value)
+                            }
+                            None => Err(RuntimeError::new(
+                                start,
+                                RuntimeErrorCode::UndefinedVariable,
+                            )),
+                        },
+                        v=> {
+                            define_variable(*lhs, v.clone());
+                            Ok(v)
+                        }
+                        //None => Err(RuntimeError::new(
+                        //    start,
+                        //    RuntimeErrorCode::ExpressionExpected,
+                        //)),
+                    },
+                    _ => Err(RuntimeError::new(start, RuntimeErrorCode::NameExpected)),
+                },
+                _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
             K::Verb(Verb::Bang) => match args.len() {
                 0 => Ok(k),

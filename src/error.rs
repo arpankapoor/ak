@@ -44,6 +44,9 @@ pub enum RuntimeErrorCode {
     Nyi,
     Rank,
     Type,
+    NameExpected,
+    ExpressionExpected,
+    UndefinedVariable,
 }
 
 pub type LexerError = KError<LexerErrorCode>;
