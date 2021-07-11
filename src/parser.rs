@@ -3,8 +3,7 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 
 use crate::error::{ParserError, ParserErrorCode};
-use crate::k::Verb;
-use crate::k::K;
+use crate::k::{Verb, K, K0};
 use crate::span::Spanned;
 use crate::tok::Token;
 
@@ -106,7 +105,7 @@ impl Parser {
         let e1 = extract_ast!(self.subexpr());
         let res = match self.tokens_iter.next_if(|x| matches!(x.2, Token::Verb(_))) {
             Some(Spanned(s, e, Token::Verb(v))) => {
-                let verb = ASTNode::Expr(Spanned(s, e, K::Verb(v)));
+                let verb = ASTNode::Expr(Spanned(s, e, K0::Verb(v).into()));
                 match self.expr()? {
                     Some(e2) => ASTNode::Apply(Spanned(
                         e1.start(),
@@ -144,18 +143,18 @@ impl Parser {
             Token::LtParen => extract_ast!(self.paren(s)),
             //Token::LtBraces => extract_ast!(self.function(s)),
             Token::LtBracket => extract_ast!(self.bracket(s)),
-            Token::Verb(v) => ASTNode::Expr(Spanned(s, e, K::Verb(v))),
-            Token::Adverb(a) => ASTNode::Expr(Spanned(s, e, K::Adverb(a))),
-            Token::Char(c) => ASTNode::Expr(Spanned(s, e, K::Char(c))),
-            Token::Int(i) => ASTNode::Expr(Spanned(s, e, K::Int(i))),
-            Token::Float(f) => ASTNode::Expr(Spanned(s, e, K::Float(f))),
-            Token::Sym(sym) => ASTNode::Expr(Spanned(s, e, K::Sym(sym))),
-            Token::CharList(c) => ASTNode::Expr(Spanned(s, e, K::CharList(c))),
-            Token::IntList(i) => ASTNode::Expr(Spanned(s, e, K::IntList(i))),
-            Token::FloatList(f) => ASTNode::Expr(Spanned(s, e, K::FloatList(f))),
-            Token::SymList(sym) => ASTNode::Expr(Spanned(s, e, K::SymList(sym))),
-            Token::Name(id) => ASTNode::Expr(Spanned(s, e, K::Name(id))),
-            _ => ASTNode::Expr(Spanned(0, 0, K::GenList(vec![]))), // replace with error or unreachable..
+            Token::Verb(v) => ASTNode::Expr(Spanned(s, e, K0::Verb(v).into())),
+            Token::Adverb(a) => ASTNode::Expr(Spanned(s, e, K0::Adverb(a).into())),
+            Token::Char(c) => ASTNode::Expr(Spanned(s, e, K0::Char(c).into())),
+            Token::Int(i) => ASTNode::Expr(Spanned(s, e, K0::Int(i).into())),
+            Token::Float(f) => ASTNode::Expr(Spanned(s, e, K0::Float(f).into())),
+            Token::Sym(sym) => ASTNode::Expr(Spanned(s, e, K0::Sym(sym).into())),
+            Token::CharList(c) => ASTNode::Expr(Spanned(s, e, K0::CharList(c).into())),
+            Token::IntList(i) => ASTNode::Expr(Spanned(s, e, K0::IntList(i).into())),
+            Token::FloatList(f) => ASTNode::Expr(Spanned(s, e, K0::FloatList(f).into())),
+            Token::SymList(sym) => ASTNode::Expr(Spanned(s, e, K0::SymList(sym).into())),
+            Token::Name(id) => ASTNode::Expr(Spanned(s, e, K0::Name(id).into())),
+            _ => ASTNode::Expr(Spanned(0, 0, K0::GenList(vec![]).into())), // replace with error or unreachable..
         }))
     }
 
@@ -164,12 +163,20 @@ impl Parser {
         match self.tokens_iter.next_if(|x| matches!(x.2, Token::RtParen)) {
             Some(Spanned(_, end, _)) => match exprs.len() {
                 1 if matches!(exprs.first(), Some(Some(_))) => Ok(exprs.remove(0)),
-                1 => Ok(Some(ASTNode::Expr(Spanned(start, end, K::GenList(vec![]))))),
+                1 => Ok(Some(ASTNode::Expr(Spanned(
+                    start,
+                    end,
+                    K0::GenList(vec![]).into(),
+                )))),
                 _ => Ok(Some(ASTNode::Apply(Spanned(
                     start,
                     end,
                     (
-                        Box::new(ASTNode::Expr(Spanned(start, start, K::Verb(Verb::Comma)))),
+                        Box::new(ASTNode::Expr(Spanned(
+                            start,
+                            start,
+                            K0::Verb(Verb::Comma).into(),
+                        ))),
                         exprs,
                     ),
                 )))),

@@ -8,6 +8,7 @@ use std::io;
 use std::io::{BufRead, Write};
 use std::process;
 
+use crate::environ::print_variable_rcs;
 use crate::error::KError;
 use crate::parser::Parser;
 use crate::tok::Tokenizer;
@@ -58,7 +59,7 @@ fn run(src: &[u8]) {
             }
             match Parser::new(tokens).parse() {
                 Ok(Some(ast)) => {
-                    println!("{}", ast);
+                    //println!("{}", ast);
                     match ast.interpret() {
                         Ok(k) => println!("{}", k),
                         Err(e) => {
@@ -79,6 +80,7 @@ fn run(src: &[u8]) {
             print_error(src, e);
         }
     }
+    print_variable_rcs();
 }
 
 fn run_prompt() -> io::Result<()> {

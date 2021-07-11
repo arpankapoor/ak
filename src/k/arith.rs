@@ -1,7 +1,7 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Deref, Div, Mul, Neg, Sub};
 
 use crate::error::RuntimeErrorCode;
-use crate::k::{KResult, K};
+use crate::k::{KResult, K, K0};
 
 macro_rules! impl_i64_arith {
     ($trait: tt, $method: tt, $op: tt) => {
@@ -9,15 +9,15 @@ macro_rules! impl_i64_arith {
             type Output = KResult;
 
             fn $method(self, rhs: i64) -> Self::Output {
-                match self {
-                    K::Int(x) => Ok(K::Int(x $op rhs)),
-                    K::Float(x) => Ok(K::Float(x $op rhs as f64)),
-                    K::IntList(x) => Ok(K::IntList(x.iter().map(|i| i $op rhs).collect())),
-                    K::FloatList(x) => {
+                match self.deref() {
+                    K0::Int(x) => Ok(K0::Int(x $op rhs).into()),
+                    K0::Float(x) => Ok(K0::Float(x $op rhs as f64).into()),
+                    K0::IntList(x) => Ok(K0::IntList(x.iter().map(|i| i $op rhs).collect()).into()),
+                    K0::FloatList(x) => {
                         let rhs = rhs as f64;
-                        Ok(K::FloatList(x.iter().map(|i| i $op rhs).collect()))
+                        Ok(K0::FloatList(x.iter().map(|i| i $op rhs).collect()).into())
                     }
-                    K::GenList(x) => Ok(x
+                    K0::GenList(x) => Ok(x
                         .iter()
                         .map(|i| i $op rhs)
                         .collect::<Result<Vec<_>, _>>()?
@@ -31,15 +31,15 @@ macro_rules! impl_i64_arith {
             type Output = KResult;
 
             fn $method(self, rhs: &K) -> Self::Output {
-                match rhs {
-                    K::Int(x) => Ok(K::Int(self $op x)),
-                    K::Float(x) => Ok(K::Float(self as f64 $op x)),
-                    K::IntList(x) => Ok(K::IntList(x.iter().map(|i| self $op i).collect())),
-                    K::FloatList(x) => {
+                match rhs.deref() {
+                    K0::Int(x) => Ok(K0::Int(self $op x).into()),
+                    K0::Float(x) => Ok(K0::Float(self as f64 $op x).into()),
+                    K0::IntList(x) => Ok(K0::IntList(x.iter().map(|i| self $op i).collect()).into()),
+                    K0::FloatList(x) => {
                         let lhs = self as f64;
-                        Ok(K::FloatList(x.iter().map(|i| lhs $op i).collect()))
+                        Ok(K0::FloatList(x.iter().map(|i| lhs $op i).collect()).into())
                     }
-                    K::GenList(x) => Ok(x
+                    K0::GenList(x) => Ok(x
                         .iter()
                         .map(|i| self $op i)
                         .collect::<Result<Vec<_>, _>>()?
@@ -57,12 +57,16 @@ macro_rules! impl_f64_arith {
             type Output = KResult;
 
             fn $method(self, rhs: f64) -> Self::Output {
-                match self {
-                    K::Int(x) => Ok(K::Float(*x as f64 $op rhs)),
-                    K::Float(x) => Ok(K::Float(x $op rhs)),
-                    K::IntList(x) => Ok(K::FloatList(x.iter().map(|&i| i as f64 $op rhs).collect())),
-                    K::FloatList(x) => Ok(K::FloatList(x.iter().map(|i| i $op rhs).collect())),
-                    K::GenList(x) => Ok(x
+                match self.deref() {
+                    K0::Int(x) => Ok(K0::Float(*x as f64 $op rhs).into()),
+                    K0::Float(x) => Ok(K0::Float(x $op rhs).into()),
+                    K0::IntList(x) => {
+                        Ok(K0::FloatList(x.iter().map(|&i| i as f64 $op rhs).collect()).into())
+                    }
+                    K0::FloatList(x) => {
+                        Ok(K0::FloatList(x.iter().map(|i| i $op rhs).collect()).into())
+                    }
+                    K0::GenList(x) => Ok(x
                         .iter()
                         .map(|i| i $op rhs)
                         .collect::<Result<Vec<_>, _>>()?
@@ -76,12 +80,16 @@ macro_rules! impl_f64_arith {
             type Output = KResult;
 
             fn $method(self, rhs: &K) -> Self::Output {
-                match rhs {
-                    K::Int(x) => Ok(K::Float(self $op *x as f64)),
-                    K::Float(x) => Ok(K::Float(self $op x)),
-                    K::IntList(x) => Ok(K::FloatList(x.iter().map(|&i| self $op i as f64).collect())),
-                    K::FloatList(x) => Ok(K::FloatList(x.iter().map(|i| self $op i).collect())),
-                    K::GenList(x) => Ok(x
+                match rhs.deref() {
+                    K0::Int(x) => Ok(K0::Float(self $op *x as f64).into()),
+                    K0::Float(x) => Ok(K0::Float(self $op x).into()),
+                    K0::IntList(x) => {
+                        Ok(K0::FloatList(x.iter().map(|&i| self $op i as f64).collect()).into())
+                    }
+                    K0::FloatList(x) => {
+                        Ok(K0::FloatList(x.iter().map(|i| self $op i).collect()).into())
+                    }
+                    K0::GenList(x) => Ok(x
                         .iter()
                         .map(|i| self $op i)
                         .collect::<Result<Vec<_>, _>>()?
@@ -99,27 +107,30 @@ macro_rules! impl_k_arith {
             type Output = KResult;
 
             fn $method(self, rhs: Self) -> Self::Output {
-                match (self, rhs) {
-                    (K::Int(x), y) => *x $op y,
-                    (K::Float(x), y) => *x $op y,
+                match (self.deref(), rhs.deref()) {
+                    (K0::Int(x), _) => *x $op rhs,
+                    (K0::Float(x), _) => *x $op rhs,
 
-                    (K::IntList(x), K::IntList(y)) => {
+                    (K0::IntList(x), K0::IntList(y)) => {
                         if x.len() == y.len() {
-                            Ok(K::IntList(x.iter().zip(y).map(|(i, j)| i $op j).collect()))
+                            Ok(K0::IntList(x.iter().zip(y).map(|(i, j)| i $op j).collect()).into())
                         } else {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::IntList(x), K::FloatList(y)) => {
+                    (K0::IntList(x), K0::FloatList(y)) => {
                         if x.len() == y.len() {
-                            Ok(K::FloatList(
-                                x.iter().zip(y).map(|(&i, j)| i as f64 $op j).collect(),
-                            ))
+                            Ok(
+                                K0::FloatList(
+                                    x.iter().zip(y).map(|(&i, j)| i as f64 $op j).collect(),
+                                )
+                                .into(),
+                            )
                         } else {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::IntList(x), K::GenList(y)) => {
+                    (K0::IntList(x), K0::GenList(y)) => {
                         if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
@@ -130,29 +141,32 @@ macro_rules! impl_k_arith {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::IntList(x), y) => Ok(x
+                    (K0::IntList(x), _) => Ok(x
                         .iter()
-                        .map(|&i| i $op y)
+                        .map(|&i| i $op rhs)
                         .collect::<Result<Vec<_>, _>>()?
                         .into()),
 
-                    (K::FloatList(x), K::IntList(y)) => {
+                    (K0::FloatList(x), K0::IntList(y)) => {
                         if x.len() == y.len() {
-                            Ok(K::FloatList(
-                                x.iter().zip(y).map(|(i, &j)| i $op j as f64).collect(),
-                            ))
+                            Ok(
+                                K0::FloatList(
+                                    x.iter().zip(y).map(|(i, &j)| i $op j as f64).collect(),
+                                )
+                                .into(),
+                            )
                         } else {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::FloatList(x), K::FloatList(y)) => {
+                    (K0::FloatList(x), K0::FloatList(y)) => {
                         if x.len() == y.len() {
-                            Ok(K::FloatList(x.iter().zip(y).map(|(i, j)| i $op j).collect()))
+                            Ok(K0::FloatList(x.iter().zip(y).map(|(i, j)| i $op j).collect()).into())
                         } else {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::FloatList(x), K::GenList(y)) => {
+                    (K0::FloatList(x), K0::GenList(y)) => {
                         if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
@@ -163,13 +177,13 @@ macro_rules! impl_k_arith {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::FloatList(x), y) => Ok(x
+                    (K0::FloatList(x), _) => Ok(x
                         .iter()
-                        .map(|&i| i $op y)
+                        .map(|&i| i $op rhs)
                         .collect::<Result<Vec<_>, _>>()?
                         .into()),
 
-                    (K::GenList(x), K::IntList(y)) => {
+                    (K0::GenList(x), K0::IntList(y)) => {
                         if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
@@ -180,7 +194,7 @@ macro_rules! impl_k_arith {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::GenList(x), K::FloatList(y)) => {
+                    (K0::GenList(x), K0::FloatList(y)) => {
                         if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
@@ -191,7 +205,7 @@ macro_rules! impl_k_arith {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::GenList(x), K::GenList(y)) => {
+                    (K0::GenList(x), K0::GenList(y)) => {
                         if x.len() == y.len() {
                             Ok(x.iter()
                                 .zip(y)
@@ -202,9 +216,9 @@ macro_rules! impl_k_arith {
                             Err(RuntimeErrorCode::Length)
                         }
                     }
-                    (K::GenList(x), y) => Ok(x
+                    (K0::GenList(x), _) => Ok(x
                         .iter()
-                        .map(|i| i $op y)
+                        .map(|i| i $op rhs)
                         .collect::<Result<Vec<_>, _>>()?
                         .into()),
 
@@ -250,32 +264,31 @@ impl Div for &K {
     type Output = KResult;
 
     fn div(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (K::Int(x), y) => *x / y,
-            (K::Float(x), y) => *x / y,
+        match (self.deref(), rhs.deref()) {
+            (K0::Int(x), _) => *x / rhs,
+            (K0::Float(x), _) => *x / rhs,
 
-            (K::IntList(x), K::IntList(y)) => {
+            (K0::IntList(x), K0::IntList(y)) => {
                 if x.len() == y.len() {
-                    Ok(K::FloatList(
+                    Ok(K0::FloatList(
                         x.iter()
                             .zip(y)
                             .map(|(&i, &j)| i as f64 / j as f64)
                             .collect(),
-                    ))
+                    )
+                    .into())
                 } else {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::IntList(x), K::FloatList(y)) => {
+            (K0::IntList(x), K0::FloatList(y)) => {
                 if x.len() == y.len() {
-                    Ok(K::FloatList(
-                        x.iter().zip(y).map(|(&i, j)| i as f64 / j).collect(),
-                    ))
+                    Ok(K0::FloatList(x.iter().zip(y).map(|(&i, j)| i as f64 / j).collect()).into())
                 } else {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::IntList(x), K::GenList(y)) => {
+            (K0::IntList(x), K0::GenList(y)) => {
                 if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
@@ -286,29 +299,27 @@ impl Div for &K {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::IntList(x), y) => Ok(x
+            (K0::IntList(x), _) => Ok(x
                 .iter()
-                .map(|&i| i / y)
+                .map(|&i| i / rhs)
                 .collect::<Result<Vec<_>, _>>()?
                 .into()),
 
-            (K::FloatList(x), K::IntList(y)) => {
+            (K0::FloatList(x), K0::IntList(y)) => {
                 if x.len() == y.len() {
-                    Ok(K::FloatList(
-                        x.iter().zip(y).map(|(i, &j)| i / j as f64).collect(),
-                    ))
+                    Ok(K0::FloatList(x.iter().zip(y).map(|(i, &j)| i / j as f64).collect()).into())
                 } else {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::FloatList(x), K::FloatList(y)) => {
+            (K0::FloatList(x), K0::FloatList(y)) => {
                 if x.len() == y.len() {
-                    Ok(K::FloatList(x.iter().zip(y).map(|(i, j)| i / j).collect()))
+                    Ok(K0::FloatList(x.iter().zip(y).map(|(i, j)| i / j).collect()).into())
                 } else {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::FloatList(x), K::GenList(y)) => {
+            (K0::FloatList(x), K0::GenList(y)) => {
                 if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
@@ -319,13 +330,13 @@ impl Div for &K {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::FloatList(x), y) => Ok(x
+            (K0::FloatList(x), _) => Ok(x
                 .iter()
-                .map(|&i| i / y)
+                .map(|&i| i / rhs)
                 .collect::<Result<Vec<_>, _>>()?
                 .into()),
 
-            (K::GenList(x), K::IntList(y)) => {
+            (K0::GenList(x), K0::IntList(y)) => {
                 if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
@@ -336,7 +347,7 @@ impl Div for &K {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::GenList(x), K::FloatList(y)) => {
+            (K0::GenList(x), K0::FloatList(y)) => {
                 if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
@@ -347,7 +358,7 @@ impl Div for &K {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::GenList(x), K::GenList(y)) => {
+            (K0::GenList(x), K0::GenList(y)) => {
                 if x.len() == y.len() {
                     Ok(x.iter()
                         .zip(y)
@@ -358,9 +369,9 @@ impl Div for &K {
                     Err(RuntimeErrorCode::Length)
                 }
             }
-            (K::GenList(x), y) => Ok(x
+            (K0::GenList(x), _) => Ok(x
                 .iter()
-                .map(|i| i / y)
+                .map(|i| i / rhs)
                 .collect::<Result<Vec<_>, _>>()?
                 .into()),
 
@@ -373,12 +384,12 @@ impl Neg for &K {
     type Output = KResult;
 
     fn neg(self) -> Self::Output {
-        match self {
-            K::Int(x) => Ok(K::Int(-x)),
-            K::Float(x) => Ok(K::Float(-x)),
-            K::IntList(x) => Ok(K::IntList(x.iter().map(|i| -i).collect())),
-            K::FloatList(x) => Ok(K::FloatList(x.iter().map(|i| -i).collect())),
-            K::GenList(x) => Ok(x.iter().map(|i| -i).collect::<Result<Vec<_>, _>>()?.into()),
+        match self.deref() {
+            K0::Int(x) => Ok(K0::Int(-x).into()),
+            K0::Float(x) => Ok(K0::Float(-x).into()),
+            K0::IntList(x) => Ok(K0::IntList(x.iter().map(|i| -i).collect()).into()),
+            K0::FloatList(x) => Ok(K0::FloatList(x.iter().map(|i| -i).collect()).into()),
+            K0::GenList(x) => Ok(x.iter().map(|i| -i).collect::<Result<Vec<_>, _>>()?.into()),
             _ => Err(RuntimeErrorCode::Type),
         }
     }

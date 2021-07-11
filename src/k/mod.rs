@@ -2,6 +2,8 @@ use std::fmt;
 use std::hint::unreachable_unchecked;
 use std::mem;
 use std::num::FpCategory;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use crate::error::RuntimeErrorCode;
 use crate::sym::Sym;
@@ -46,7 +48,7 @@ pub enum Adverb {
 }
 
 #[derive(Clone, Debug)]
-pub enum K {
+pub enum K0 {
     Nil,
     Char(u8),
     Int(i64),
@@ -66,7 +68,36 @@ pub enum K {
 
 type KResult = Result<K, RuntimeErrorCode>;
 
+#[derive(Clone, Debug)]
+pub struct K(pub Arc<K0>); // remove pub if print_variable_rcs is deleted
+
+impl K {
+    pub fn new(k0: K0) -> K {
+        K(Arc::new(k0))
+    }
+}
+
+impl From<K0> for K {
+    fn from(k0: K0) -> Self {
+        K::new(k0)
+    }
+}
+
+impl Deref for K {
+    type Target = K0;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
 impl fmt::Display for K {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for K0 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn fmt_list<T: fmt::Display>(
             f: &mut fmt::Formatter<'_>,
@@ -130,34 +161,36 @@ macro_rules! impl_from {
     ($type: ty, $kvariant: path) => {
         impl From<$type> for K {
             fn from(v: $type) -> K {
-                $kvariant(v)
+                $kvariant(v).into()
             }
         }
     };
 }
 
-impl_from!(u8, K::Char);
-impl_from!(i64, K::Int);
-impl_from!(f64, K::Float);
-impl_from!(Sym, K::Sym);
-impl_from!(Vec<u8>, K::CharList);
-impl_from!(Vec<i64>, K::IntList);
-impl_from!(Vec<f64>, K::FloatList);
-impl_from!(Vec<Sym>, K::SymList);
+impl_from!(u8, K0::Char);
+impl_from!(i64, K0::Int);
+impl_from!(f64, K0::Float);
+impl_from!(Sym, K0::Sym);
+impl_from!(Vec<u8>, K0::CharList);
+impl_from!(Vec<i64>, K0::IntList);
+impl_from!(Vec<f64>, K0::FloatList);
+impl_from!(Vec<Sym>, K0::SymList);
 
 impl From<Vec<K>> for K {
     fn from(v: Vec<K>) -> Self {
         if let Some((first, rest)) = v.split_first() {
-            if matches!(first, K::Char(_) | K::Int(_) | K::Float(_) | K::Sym(_))
-                && rest
-                    .iter()
-                    .all(|x| mem::discriminant(first) == mem::discriminant(x))
+            if matches!(
+                first.deref(),
+                K0::Char(_) | K0::Int(_) | K0::Float(_) | K0::Sym(_)
+            ) && rest
+                .iter()
+                .all(|x| mem::discriminant(first) == mem::discriminant(x))
             {
                 macro_rules! to_simple_list {
                     ($list: ident, $variant: path) => {
                         $list
                             .into_iter()
-                            .map(|k| match k {
+                            .map(|k| match *k {
                                 $variant(x) => x,
                                 _ => unsafe { unreachable_unchecked() },
                             })
@@ -165,15 +198,15 @@ impl From<Vec<K>> for K {
                             .into()
                     };
                 }
-                return match first {
-                    K::Char(_) => to_simple_list!(v, K::Char),
-                    K::Int(_) => to_simple_list!(v, K::Int),
-                    K::Float(_) => to_simple_list!(v, K::Float),
-                    K::Sym(_) => to_simple_list!(v, K::Sym),
+                return match first.deref() {
+                    K0::Char(_) => to_simple_list!(v, K0::Char),
+                    K0::Int(_) => to_simple_list!(v, K0::Int),
+                    K0::Float(_) => to_simple_list!(v, K0::Float),
+                    K0::Sym(_) => to_simple_list!(v, K0::Sym),
                     _ => unsafe { unreachable_unchecked() },
                 };
             }
         }
-        K::GenList(v)
+        K0::GenList(v).into()
     }
 }
