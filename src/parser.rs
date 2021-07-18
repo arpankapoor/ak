@@ -76,6 +76,8 @@ macro_rules! extract_ast {
     };
 }
 
+type PResult = Result<Option<ASTNode>, ParserError>;
+
 impl Parser {
     pub fn new(tokens: Vec<Spanned<Token>>) -> Self {
         Parser {
@@ -83,11 +85,11 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Option<ASTNode>, ParserError> {
+    pub fn parse(&mut self) -> PResult {
         self.program()
     }
 
-    fn program(&mut self) -> Result<Option<ASTNode>, ParserError> {
+    fn program(&mut self) -> PResult {
         let Spanned(start, end, mut exprs) = self.expr_list(0)?;
         if let Some(Spanned(s, _, _)) = self.tokens_iter.next() {
             return Err(ParserError {
@@ -101,7 +103,7 @@ impl Parser {
         }
     }
 
-    fn expr(&mut self) -> Result<Option<ASTNode>, ParserError> {
+    fn expr(&mut self) -> PResult {
         let e1 = extract_ast!(self.subexpr());
         let res = match self.tokens_iter.next_if(|x| matches!(x.2, Token::Verb(_))) {
             Some(Spanned(s, e, Token::Verb(v))) => {
@@ -131,7 +133,7 @@ impl Parser {
         Ok(Some(res))
     }
 
-    fn subexpr(&mut self) -> Result<Option<ASTNode>, ParserError> {
+    fn subexpr(&mut self) -> PResult {
         let Spanned(s, e, t) = match self
             .tokens_iter
             .next_if(|x| !matches!(x.2, Token::Semi | Token::RtParen | Token::RtBracket))
@@ -158,7 +160,7 @@ impl Parser {
         }))
     }
 
-    fn paren(&mut self, start: usize) -> Result<Option<ASTNode>, ParserError> {
+    fn paren(&mut self, start: usize) -> PResult {
         let Spanned(_, _, mut exprs) = self.expr_list(start)?;
         match self.tokens_iter.next_if(|x| matches!(x.2, Token::RtParen)) {
             Some(Spanned(_, end, _)) => match exprs.len() {
@@ -188,7 +190,7 @@ impl Parser {
         }
     }
 
-    fn bracket(&mut self, start: usize) -> Result<Option<ASTNode>, ParserError> {
+    fn bracket(&mut self, start: usize) -> PResult {
         let Spanned(_, _, exprs) = self.expr_list(start)?;
         match self
             .tokens_iter
