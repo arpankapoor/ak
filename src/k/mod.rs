@@ -184,7 +184,7 @@ impl From<Vec<K>> for K {
                 K0::Char(_) | K0::Int(_) | K0::Float(_) | K0::Sym(_)
             ) && rest
                 .iter()
-                .all(|x| mem::discriminant(first) == mem::discriminant(x))
+                .all(|x| mem::discriminant(first.deref()) == mem::discriminant(x.deref()))
             {
                 macro_rules! to_simple_list {
                     ($list: ident, $variant: path) => {
