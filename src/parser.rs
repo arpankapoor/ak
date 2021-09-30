@@ -7,7 +7,7 @@ use crate::k::{Verb, K, K0};
 use crate::span::Spanned;
 use crate::tok::Token;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ASTNode {
     Expr(Spanned<K>),
     Apply(Spanned<(Box<ASTNode>, Vec<Option<ASTNode>>)>),

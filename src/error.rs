@@ -44,7 +44,7 @@ pub enum RuntimeErrorCode {
     Nyi,
     Rank,
     Type,
-    NameExpected,
+    NameExpectedOnLhs,
     ExpressionExpected,
     UndefinedVariable,
 }

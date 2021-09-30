@@ -11,14 +11,42 @@ use crate::sym::Sym;
 impl ASTNode {
     pub fn interpret(self) -> Result<K, RuntimeError> {
         match self {
-            ASTNode::Expr(Spanned(_, _, k)) => Ok(k),
-            ASTNode::Apply(Spanned(_, _, (value, args))) => {
-                // don't interpret args if the verb is $ (conditional) and args is an exprlist with >2 elements
-                if matches!(*value, ASTNode::Expr(Spanned(_, _, ref k)) if matches!(k.deref(), K0::Verb(Verb::Dollar)))
-                    && args.len() == 1
-                    && matches!(args.first(), Some(Some(ASTNode::ExprList(Spanned(_, _, a)))) if a.len() > 2)
-                {
-                    return Self::conditional(args);
+            ASTNode::Expr(Spanned(s, _, k)) => match k.deref() {
+                K0::Name(name) => match get_variable(*name) {
+                    Some(value) => Ok(value),
+                    None => Err(RuntimeError::new(s, RuntimeErrorCode::UndefinedVariable)),
+                },
+                _ => Ok(k),
+            },
+            ASTNode::Apply(Spanned(s, _, (value, args))) => {
+                if let ASTNode::Expr(Spanned(_, _, ref k)) = value.deref() {
+                    match (k.deref(), args.len(), args.first()) {
+                        (
+                            K0::Verb(Verb::Dollar),
+                            1,
+                            Some(Some(ASTNode::ExprList(Spanned(_, _, elist)))),
+                        ) if elist.len() > 2 => {
+                            // don't interpret args if the verb is $ (conditional) and args is an exprlist with >2 elements
+                            return Self::conditional(args);
+                        }
+                        (
+                            K0::Verb(Verb::Colon),
+                            2,
+                            Some(Some(ASTNode::Expr(Spanned(_, _, name)))),
+                        ) if matches!(name.deref(), K0::Name(_)) => {
+                            // do not evaluate LHS in an assignment
+                            return match args.last() {
+                                Some(Some(rhs)) => {
+                                    // todo: get rid of the clone somehow
+                                    value.apply(&[name.clone(), rhs.clone().interpret()?])
+                                }
+                                _ => {
+                                    Err(RuntimeError::new(s, RuntimeErrorCode::ExpressionExpected))
+                                }
+                            };
+                        }
+                        _ => (),
+                    }
                 }
                 let mut kargs = VecDeque::with_capacity(args.len());
                 for item in args.into_iter().rev() {
@@ -27,7 +55,7 @@ impl ASTNode {
                         None => K0::Nil.into(),
                     })
                 }
-                value.apply(kargs)
+                value.apply(kargs.make_contiguous())
             }
             ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError::new(s, RuntimeErrorCode::Nyi)),
         }
@@ -37,7 +65,7 @@ impl ASTNode {
         todo!("conditional expression")
     }
 
-    fn apply(self, mut args: VecDeque<K>) -> Result<K, RuntimeError> {
+    fn apply(self, args: &[K]) -> Result<K, RuntimeError> {
         let start = self.start();
         let k = self.interpret()?;
         match k.deref() {
@@ -72,23 +100,14 @@ impl ASTNode {
             K0::Verb(Verb::Colon) => match args.len() {
                 0 => Ok(k),
                 2 => match args[0].deref() {
-                    K0::Name(lhs) => match args[1].deref() {
-                        K0::Name(rhs) => match get_variable(*rhs) {
-                            Some(value) => {
-                                define_variable(*lhs, &value);
-                                Ok(value)
-                            }
-                            None => Err(RuntimeError::new(
-                                start,
-                                RuntimeErrorCode::UndefinedVariable,
-                            )),
-                        },
-                        _ => {
-                            define_variable(*lhs, &args[1]);
-                            Ok(args.pop_back().unwrap())
-                        }
-                    },
-                    _ => Err(RuntimeError::new(start, RuntimeErrorCode::NameExpected)),
+                    K0::Name(lhs) => {
+                        define_variable(*lhs, &args[1]);
+                        Ok(args[1].clone())
+                    }
+                    _ => Err(RuntimeError::new(
+                        start,
+                        RuntimeErrorCode::NameExpectedOnLhs,
+                    )),
                 },
                 _ => Err(RuntimeError::new(start, RuntimeErrorCode::Rank)),
             },
