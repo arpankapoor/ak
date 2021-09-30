@@ -57,7 +57,18 @@ impl ASTNode {
                 }
                 value.apply(kargs.make_contiguous())
             }
-            ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError::new(s, RuntimeErrorCode::Nyi)),
+            ASTNode::ExprList(Spanned(s, _, mut elist)) => {
+                let last = elist.pop();
+                for item in elist {
+                    if let Some(ast) = item {
+                        ast.interpret()?;
+                    }
+                }
+                match last {
+                    Some(Some(ast)) => ast.interpret(),
+                    _ => Ok(K0::Nil.into()),
+                }
+            }
         }
     }
 

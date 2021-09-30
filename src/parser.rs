@@ -106,7 +106,10 @@ impl Parser {
     // infix verb or simple subexpression
     fn expr(&mut self) -> PResult {
         let e1 = extract_ast!(self.subexpr());
-        let res = match self.tokens_iter.next_if(|x| matches!(x.2, Token::Verb(_))) {
+        let res = match self
+            .tokens_iter
+            .next_if(|x| matches!(x.2, Token::Verb(_) | Token::LtBracket))
+        {
             Some(Spanned(s, e, Token::Verb(v))) => {
                 let verb = ASTNode::Expr(Spanned(s, e, K0::Verb(v).into()));
                 match self.expr()? {
@@ -121,6 +124,10 @@ impl Parser {
                         (Box::new(verb), vec![Some(e1), None]),
                     )),
                 }
+            }
+            Some(Spanned(s, _, Token::LtBracket)) => {
+                let Spanned(_, e, exprs) = self.bracket_expr_list(s)?;
+                ASTNode::Apply(Spanned(e1.start(), e, (Box::new(e1), exprs)))
             }
             _ => match self.expr()? {
                 Some(e2) => ASTNode::Apply(Spanned(
@@ -197,12 +204,19 @@ impl Parser {
 
     // bracketed expression list
     fn bracket(&mut self, start: usize) -> PResult {
+        Ok(Some(ASTNode::ExprList(self.bracket_expr_list(start)?)))
+    }
+
+    fn bracket_expr_list(
+        &mut self,
+        start: usize,
+    ) -> Result<Spanned<Vec<Option<ASTNode>>>, ParserError> {
         let Spanned(_, _, exprs) = self.expr_list(start)?;
         match self
             .tokens_iter
             .next_if(|x| matches!(x.2, Token::RtBracket))
         {
-            Some(Spanned(_, end, _)) => Ok(Some(ASTNode::ExprList(Spanned(start, end, exprs)))),
+            Some(Spanned(_, end, _)) => Ok(Spanned(start, end, exprs)),
             None => Err(ParserError {
                 location: start,
                 code: ParserErrorCode::UnclosedBrackets,

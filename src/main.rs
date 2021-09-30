@@ -59,7 +59,7 @@ fn run(src: &[u8]) {
             }
             match Parser::new(tokens).parse() {
                 Ok(Some(ast)) => {
-                    //println!("{}", ast);
+                    println!("{}", ast);
                     match ast.interpret() {
                         Ok(k) => println!("{}", k),
                         Err(e) => {
