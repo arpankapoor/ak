@@ -57,12 +57,10 @@ impl ASTNode {
                 }
                 value.apply(kargs.make_contiguous())
             }
-            ASTNode::ExprList(Spanned(s, _, mut elist)) => {
+            ASTNode::ExprList(Spanned(_, _, mut elist)) => {
                 let last = elist.pop();
-                for item in elist {
-                    if let Some(ast) = item {
-                        ast.interpret()?;
-                    }
+                for ast in elist.into_iter().flatten() {
+                    ast.interpret()?;
                 }
                 match last {
                     Some(Some(ast)) => ast.interpret(),
