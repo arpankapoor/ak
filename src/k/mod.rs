@@ -177,6 +177,7 @@ impl_from!(Vec<f64>, K0::FloatList);
 impl_from!(Vec<Sym>, K0::SymList);
 
 impl From<Vec<K>> for K {
+    // convert to a [char|int|float|sym]list if the Vec exclusively has those elements
     fn from(v: Vec<K>) -> Self {
         if let Some((first, rest)) = v.split_first() {
             if matches!(

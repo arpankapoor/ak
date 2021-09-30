@@ -13,6 +13,13 @@ impl ASTNode {
         match self {
             ASTNode::Expr(Spanned(_, _, k)) => Ok(k),
             ASTNode::Apply(Spanned(_, _, (value, args))) => {
+                // don't interpret args if the verb is $ (conditional) and args is an exprlist with >2 elements
+                if matches!(*value, ASTNode::Expr(Spanned(_, _, ref k)) if matches!(k.deref(), K0::Verb(Verb::Dollar)))
+                    && args.len() == 1
+                    && matches!(args.first(), Some(Some(ASTNode::ExprList(Spanned(_, _, a)))) if a.len() > 2)
+                {
+                    return Self::conditional(args);
+                }
                 let mut kargs = VecDeque::with_capacity(args.len());
                 for item in args.into_iter().rev() {
                     kargs.push_front(match item {
@@ -24,6 +31,10 @@ impl ASTNode {
             }
             ASTNode::ExprList(Spanned(s, _, _)) => Err(RuntimeError::new(s, RuntimeErrorCode::Nyi)),
         }
+    }
+
+    fn conditional(_args: Vec<Option<ASTNode>>) -> Result<K, RuntimeError> {
+        todo!("conditional expression")
     }
 
     fn apply(self, mut args: VecDeque<K>) -> Result<K, RuntimeError> {

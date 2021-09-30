@@ -103,6 +103,7 @@ impl Parser {
         }
     }
 
+    // infix verb or simple subexpression
     fn expr(&mut self) -> PResult {
         let e1 = extract_ast!(self.subexpr());
         let res = match self.tokens_iter.next_if(|x| matches!(x.2, Token::Verb(_))) {
@@ -160,16 +161,20 @@ impl Parser {
         }))
     }
 
+    // parenthesized expression or expression list
     fn paren(&mut self, start: usize) -> PResult {
         let Spanned(_, _, mut exprs) = self.expr_list(start)?;
         match self.tokens_iter.next_if(|x| matches!(x.2, Token::RtParen)) {
             Some(Spanned(_, end, _)) => match exprs.len() {
+                // single expression within parens
                 1 if matches!(exprs.first(), Some(Some(_))) => Ok(exprs.remove(0)),
+                // empty parens ()
                 1 => Ok(Some(ASTNode::Expr(Spanned(
                     start,
                     end,
-                    K0::GenList(vec![]).into(),
+                    K0::GenList(Vec::new()).into(),
                 )))),
+                // list of objects
                 _ => Ok(Some(ASTNode::Apply(Spanned(
                     start,
                     end,
@@ -190,6 +195,7 @@ impl Parser {
         }
     }
 
+    // bracketed expression list
     fn bracket(&mut self, start: usize) -> PResult {
         let Spanned(_, _, exprs) = self.expr_list(start)?;
         match self
@@ -204,6 +210,7 @@ impl Parser {
         }
     }
 
+    // semicolon seperated expressions
     fn expr_list(&mut self, start: usize) -> Result<Spanned<Vec<Option<ASTNode>>>, ParserError> {
         let mut list = Vec::new();
         let mut end = start;
