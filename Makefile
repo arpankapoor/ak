@@ -1,5 +1,5 @@
-run: build
-	rlwrap ./target/debug/ak
+run: release
+	rlwrap ./target/release/ak
 build:
 	cargo +nightly build
 release:
